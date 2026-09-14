@@ -2,6 +2,13 @@ const STORAGE_KEY = 'task-manager-app:tasks';
 const STATUSES = ['todo', 'doing', 'done'];
 const PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
 const PRIORITY_ORDER = { high: 0, mid: 1, low: 2 };
+const TAG_COLORS = ['sky', 'lime', 'green', 'red', 'azure', 'purple', 'yellow', 'orange', 'pink', 'slate'];
+
+function tagColorClass(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return TAG_COLORS[hash % TAG_COLORS.length];
+}
 
 let tasks = loadTasks();
 let editingId = null;
@@ -105,7 +112,7 @@ function renderCard(task) {
     <div class="task-meta">
       <span class="badge ${task.priority}">${PRIORITY_LABEL[task.priority]}</span>
       ${task.dueDate ? `<span class="badge due ${overdue ? 'overdue' : ''}">${dueLabel}${overdue ? ' (期限超過)' : ''}</span>` : ''}
-      ${(task.categories || []).map(c => `<span class="tag"></span>`).join('')}
+      ${(task.categories || []).map(c => `<span class="tag ${tagColorClass(c)}"></span>`).join('')}
     </div>
   `;
 
