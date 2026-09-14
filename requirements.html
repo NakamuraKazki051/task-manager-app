@@ -385,7 +385,7 @@ body {
 
     <!-- 04 機能要件 -->
     <section class="list" aria-label="機能要件">
-      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">6</span></div>
+      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">7</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -416,6 +416,11 @@ body {
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.6 データ永続化</h3>
           <p class="card-desc">追加・編集・削除・移動のたびに localStorage へ保存。再読み込みやブラウザ再起動後も同一環境なら復元。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.7 サブタスク/チェックリスト</h3>
+          <p class="card-desc">タスクモーダル内で項目を追加・チェック・削除できるチェックリストを持たせる。カードには完了数/全体数のバッジを表示。</p>
         </article>
       </div>
     </section>
@@ -459,7 +464,7 @@ body {
 
     <!-- 06 データモデル -->
     <section class="list" aria-label="データモデル">
-      <div class="list-header"><h2>06 データモデル</h2><span class="list-count">8</span></div>
+      <div class="list-header"><h2>06 データモデル</h2><span class="list-count">9</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-sky">string</span></div>
@@ -501,6 +506,11 @@ body {
           <h3 class="card-title mono">createdAt</h3>
           <p class="card-desc">作成日時(ISO文字列)</p>
         </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-lime">array</span></div>
+          <h3 class="card-title mono">checklist</h3>
+          <p class="card-desc">サブタスクの配列({id, text, done}[])</p>
+        </article>
       </div>
     </section>
 
@@ -526,7 +536,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
           <h3 class="card-title">タスクモーダル</h3>
-          <p class="card-desc">追加・編集共通フォーム(タイトル/詳細/期限/優先度/カテゴリ)と削除操作。</p>
+          <p class="card-desc">追加・編集共通フォーム(タイトル/詳細/期限/優先度/カテゴリ/チェックリスト)と削除操作。</p>
         </article>
       </div>
     </section>
@@ -565,7 +575,7 @@ body {
 
     <!-- 09 今後の拡張候補 -->
     <section class="list" aria-label="今後の拡張候補">
-      <div class="list-header"><h2>09 今後の拡張候補</h2><span class="list-count">4</span></div>
+      <div class="list-header"><h2>09 今後の拡張候補</h2><span class="list-count">3</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
@@ -581,11 +591,6 @@ body {
           <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
           <h3 class="card-title">手動並び替え</h3>
           <p class="card-desc">列内でのドラッグによる順序指定に対応する。</p>
-        </article>
-        <article class="card">
-          <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
-          <h3 class="card-title">サブタスク/チェックリスト</h3>
-          <p class="card-desc">タスク内に小項目のチェックリストを持たせる。</p>
         </article>
       </div>
     </section>

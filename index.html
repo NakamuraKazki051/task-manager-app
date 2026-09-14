@@ -66,6 +66,17 @@
         <label>カテゴリ/タグ<span class="hint">(カンマ区切り)</span>
           <input type="text" id="taskCategory" placeholder="例: 仕事, 買い物">
         </label>
+        <div class="checklist-section">
+          <div class="checklist-header">
+            <span>チェックリスト</span>
+            <span class="checklist-progress" id="checklistProgress"></span>
+          </div>
+          <ul class="checklist-items" id="checklistItems"></ul>
+          <div class="checklist-add">
+            <input type="text" id="checklistNewItem" placeholder="項目を追加" maxlength="200">
+            <button type="button" id="checklistAddBtn" class="btn-secondary">追加</button>
+          </div>
+        </div>
         <div class="modal-actions">
           <button type="button" id="deleteTaskBtn" class="btn-danger hidden">削除</button>
           <div class="modal-actions-right">

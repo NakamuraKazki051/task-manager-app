@@ -12,6 +12,7 @@ function tagColorClass(name) {
 
 let tasks = loadTasks();
 let editingId = null;
+let currentChecklist = [];
 
 function loadTasks() {
   try {
@@ -105,6 +106,8 @@ function renderCard(task) {
 
   const overdue = isOverdue(task);
   const dueLabel = task.dueDate ? formatDate(task.dueDate) : '';
+  const checklist = task.checklist || [];
+  const checklistDone = checklist.filter(i => i.done).length;
 
   card.innerHTML = `
     <div class="task-card-title"></div>
@@ -112,6 +115,7 @@ function renderCard(task) {
     <div class="task-meta">
       <span class="badge ${task.priority}">${PRIORITY_LABEL[task.priority]}</span>
       ${task.dueDate ? `<span class="badge due ${overdue ? 'overdue' : ''}">${dueLabel}${overdue ? ' (期限超過)' : ''}</span>` : ''}
+      ${checklist.length ? `<span class="badge checklist ${checklistDone === checklist.length ? 'complete' : ''}">✓ ${checklistDone}/${checklist.length}</span>` : ''}
       ${(task.categories || []).map(c => `<span class="tag ${tagColorClass(c)}"></span>`).join('')}
     </div>
   `;
@@ -177,6 +181,9 @@ function openModal(task) {
   document.getElementById('taskPriority').value = task ? task.priority : 'mid';
   document.getElementById('taskCategory').value = task ? (task.categories || []).join(', ') : '';
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
+  currentChecklist = task ? (task.checklist || []).map(i => ({ ...i })) : [];
+  document.getElementById('checklistNewItem').value = '';
+  renderChecklist();
   document.getElementById('modalOverlay').classList.remove('hidden');
   document.getElementById('taskTitle').focus();
 }
@@ -184,6 +191,60 @@ function openModal(task) {
 function closeModal() {
   document.getElementById('modalOverlay').classList.add('hidden');
   editingId = null;
+  currentChecklist = [];
+}
+
+function renderChecklist() {
+  const list = document.getElementById('checklistItems');
+  list.innerHTML = '';
+
+  currentChecklist.forEach(item => {
+    const li = document.createElement('li');
+    li.className = 'checklist-item';
+    li.innerHTML = `
+      <input type="checkbox" class="checklist-check">
+      <span class="checklist-text"></span>
+      <button type="button" class="checklist-remove" aria-label="削除">×</button>
+    `;
+    const checkbox = li.querySelector('.checklist-check');
+    checkbox.checked = item.done;
+    li.classList.toggle('done', item.done);
+    li.querySelector('.checklist-text').textContent = item.text;
+
+    checkbox.addEventListener('change', () => {
+      item.done = checkbox.checked;
+      li.classList.toggle('done', item.done);
+      updateChecklistProgress();
+    });
+    li.querySelector('.checklist-remove').addEventListener('click', () => {
+      currentChecklist = currentChecklist.filter(i => i.id !== item.id);
+      renderChecklist();
+    });
+
+    list.appendChild(li);
+  });
+
+  updateChecklistProgress();
+}
+
+function updateChecklistProgress() {
+  const progress = document.getElementById('checklistProgress');
+  if (!currentChecklist.length) {
+    progress.textContent = '';
+    return;
+  }
+  const done = currentChecklist.filter(i => i.done).length;
+  progress.textContent = `${done}/${currentChecklist.length}`;
+}
+
+function addChecklistItem() {
+  const input = document.getElementById('checklistNewItem');
+  const text = input.value.trim();
+  if (!text) return;
+  currentChecklist.push({ id: uid(), text, done: false });
+  input.value = '';
+  renderChecklist();
+  input.focus();
 }
 
 function handleSubmit(e) {
@@ -197,6 +258,7 @@ function handleSubmit(e) {
     dueDate: document.getElementById('taskDue').value,
     priority: document.getElementById('taskPriority').value,
     categories: parseCategories(document.getElementById('taskCategory').value),
+    checklist: currentChecklist,
   };
 
   if (editingId) {
@@ -224,6 +286,13 @@ document.getElementById('addTaskBtn').addEventListener('click', () => openModal(
 document.getElementById('cancelBtn').addEventListener('click', closeModal);
 document.getElementById('taskForm').addEventListener('submit', handleSubmit);
 document.getElementById('deleteTaskBtn').addEventListener('click', handleDelete);
+document.getElementById('checklistAddBtn').addEventListener('click', addChecklistItem);
+document.getElementById('checklistNewItem').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addChecklistItem();
+  }
+});
 document.getElementById('modalOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'modalOverlay') closeModal();
 });
