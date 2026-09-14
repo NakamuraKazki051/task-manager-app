@@ -385,7 +385,7 @@ body {
 
     <!-- 04 機能要件 -->
     <section class="list" aria-label="機能要件">
-      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">9</span></div>
+      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">10</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -431,6 +431,11 @@ body {
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.9 手動並び替え</h3>
           <p class="card-desc">列内・列間でカードをドラッグして自由な順序に並び替えられる。並び順はタスクごとに保持され、再読み込み後も維持される。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.10 エクスポート/インポート</h3>
+          <p class="card-desc">ヘッダーの「エクスポート」でタスク・列一式をJSONファイルとしてダウンロード。「インポート」で選択したJSONを読み込み、確認のうえ現在のデータと置き換える。</p>
         </article>
       </div>
     </section>
@@ -541,7 +546,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
           <h3 class="card-title">ヘッダー</h3>
-          <p class="card-desc">アプリ名、カテゴリ/優先度フィルタ、「+ タスク追加」ボタン。</p>
+          <p class="card-desc">アプリ名、カテゴリ/優先度フィルタ、エクスポート/インポートボタン、「+ タスク追加」ボタン。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
@@ -587,25 +592,13 @@ body {
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-red">制約</span></div>
-          <h3 class="card-title">未実装機能</h3>
-          <p class="card-desc">エクスポート/インポート機能は現時点では未実装。</p>
+          <h3 class="card-title">インポートは全置換</h3>
+          <p class="card-desc">インポートは差分マージではなく、現在のタスク・列をすべて置き換える。実行前に確認ダイアログを表示する。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-red">制約</span></div>
           <h3 class="card-title">列削除の制約</h3>
           <p class="card-desc">タスクが残っている列、および最後の1列は削除できない。先にタスクを移動する必要がある。</p>
-        </article>
-      </div>
-    </section>
-
-    <!-- 09 今後の拡張候補 -->
-    <section class="list" aria-label="今後の拡張候補">
-      <div class="list-header"><h2>09 今後の拡張候補</h2><span class="list-count">1</span></div>
-      <div class="list-cards">
-        <article class="card">
-          <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
-          <h3 class="card-title">エクスポート/インポート</h3>
-          <p class="card-desc">JSONによるバックアップ・移行手段を用意する。</p>
         </article>
       </div>
     </section>

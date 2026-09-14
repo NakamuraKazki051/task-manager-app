@@ -467,6 +467,67 @@ function handleSubmit(e) {
   render();
 }
 
+function exportData() {
+  const payload = {
+    app: 'task-manager-app',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    columns,
+    tasks,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `task-manager-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try {
+      data = JSON.parse(reader.result);
+    } catch (err) {
+      alert('ファイルの読み込みに失敗しました。正しいJSONファイルを選択してください。');
+      return;
+    }
+    if (!Array.isArray(data.tasks) || !Array.isArray(data.columns) || !data.columns.length) {
+      alert('このファイルはタスク管理アプリのバックアップ形式ではないようです。');
+      return;
+    }
+    if (!confirm('インポートすると現在のタスクと列がすべて置き換わります。よろしいですか?')) return;
+
+    columns = data.columns.map(c => ({
+      id: c && c.id != null ? String(c.id) : uid(),
+      name: c && c.name ? String(c.name) : '無題の列',
+    }));
+    tasks = data.tasks.map(t => ({
+      ...t,
+      id: t && t.id != null ? String(t.id) : uid(),
+      status: columns.some(c => c.id === (t && t.status)) ? t.status : columns[0].id,
+      priority: PRIORITY_LABEL[t && t.priority] ? t.priority : 'mid',
+      categories: Array.isArray(t && t.categories) ? t.categories : [],
+      checklist: Array.isArray(t && t.checklist) ? t.checklist : [],
+    }));
+    ensureTaskOrder();
+    saveColumns();
+    saveTasks();
+    render();
+    alert('インポートが完了しました。');
+  };
+  reader.onerror = () => alert('ファイルの読み込みに失敗しました。');
+  reader.readAsText(file);
+}
+
 function handleDelete() {
   if (!editingId) return;
   if (!confirm('このタスクを削除しますか?')) return;
@@ -477,6 +538,9 @@ function handleDelete() {
 }
 
 document.getElementById('addTaskBtn').addEventListener('click', () => openModal(null));
+document.getElementById('exportBtn').addEventListener('click', exportData);
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', handleImportFile);
 document.getElementById('cancelBtn').addEventListener('click', closeModal);
 document.getElementById('taskForm').addEventListener('submit', handleSubmit);
 document.getElementById('deleteTaskBtn').addEventListener('click', handleDelete);
