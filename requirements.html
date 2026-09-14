@@ -1,0 +1,521 @@
+<title>タスク管理アプリ 要件定義書</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+:root {
+  --bg: #f6f7fa;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --border: #dde1e9;
+  --border-soft: #e8ebf1;
+  --text: #1d2230;
+  --text-muted: #5b6472;
+  --text-faint: #8891a0;
+  --accent: #4a5fd9;
+  --accent-ink: #33429e;
+  --accent-soft: rgba(74, 95, 217, 0.08);
+  --accent-soft-strong: rgba(74, 95, 217, 0.14);
+  --high: #d94a4f;
+  --mid: #b8790f;
+  --low: #2f8f4e;
+  --shadow: 0 1px 2px rgba(30, 34, 48, 0.04), 0 8px 24px rgba(30, 34, 48, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161c;
+    --surface: #1b1e26;
+    --surface-raised: #20232c;
+    --border: #2d313d;
+    --border-soft: #262a34;
+    --text: #e8eaf0;
+    --text-muted: #a3aabb;
+    --text-faint: #757d8e;
+    --accent: #8b9dff;
+    --accent-ink: #c2ccff;
+    --accent-soft: rgba(139, 157, 255, 0.12);
+    --accent-soft-strong: rgba(139, 157, 255, 0.2);
+    --high: #f0777b;
+    --mid: #e0a53f;
+    --low: #5cbb7c;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14161c;
+  --surface: #1b1e26;
+  --surface-raised: #20232c;
+  --border: #2d313d;
+  --border-soft: #262a34;
+  --text: #e8eaf0;
+  --text-muted: #a3aabb;
+  --text-faint: #757d8e;
+  --accent: #8b9dff;
+  --accent-ink: #c2ccff;
+  --accent-soft: rgba(139, 157, 255, 0.12);
+  --accent-soft-strong: rgba(139, 157, 255, 0.2);
+  --high: #f0777b;
+  --mid: #e0a53f;
+  --low: #5cbb7c;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  font-size: 15.5px;
+  line-height: 1.75;
+  padding: clamp(20px, 4vw, 48px) 20px 80px;
+}
+
+.doc {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---- Cover / meta header ---- */
+.cover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: clamp(28px, 5vw, 48px) clamp(24px, 6vw, 56px);
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cover::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 6px; height: 100%;
+  background: var(--accent);
+}
+
+.cover-eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  color: var(--accent-ink);
+  font-weight: 700;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+
+.cover h1 {
+  font-family: "Shippori Mincho", serif;
+  font-weight: 700;
+  font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+  margin: 0 0 18px;
+  text-wrap: balance;
+  letter-spacing: 0.02em;
+}
+
+.cover-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 18px 28px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.cover-meta dt {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.cover-meta dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Layout: TOC + content ---- */
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .toc { position: static; order: -1; }
+}
+
+.toc {
+  position: sticky;
+  top: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 16px;
+  box-shadow: var(--shadow);
+}
+
+.toc-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 10px;
+  padding: 0 6px;
+}
+
+.toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toc a {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 6px;
+  border-radius: 7px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.87rem;
+}
+
+.toc a:hover { background: var(--accent-soft); color: var(--text); }
+
+.toc a .n {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 0.78rem;
+  min-width: 1.4em;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+section.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: clamp(22px, 4vw, 34px);
+  box-shadow: var(--shadow);
+  scroll-margin-top: 20px;
+}
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 16px;
+}
+
+.sec-head .n {
+  font-family: "Shippori Mincho", serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.sec-head h2 {
+  font-family: "Shippori Mincho", serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 22px 0 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent);
+}
+
+p { margin: 0 0 12px; color: var(--text); max-width: 68ch; }
+p.lead { color: var(--text-muted); }
+
+ul.plain, ol.plain { margin: 0 0 12px; padding-left: 1.4em; }
+ul.plain li, ol.plain li { margin-bottom: 6px; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+.box {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.box h4 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.box.in h4 { color: var(--low); }
+.box.out h4 { color: var(--high); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.table-wrap { overflow-x: auto; margin-bottom: 12px; }
+
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+
+th {
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+td.mono, code {
+  font-family: ui-monospace, "SF Mono", Consolas, "Cascadia Code", monospace;
+  font-size: 0.84rem;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: #fff;
+  white-space: nowrap;
+}
+.badge.high { background: var(--high); }
+.badge.mid { background: var(--mid); }
+.badge.low { background: var(--low); }
+.badge.must { background: var(--accent); }
+.badge.done { background: var(--low); }
+
+.status-row { display: flex; align-items: center; gap: 8px; }
+
+.note {
+  border-left: 3px solid var(--mid);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 4px 0 12px;
+}
+
+.footer-meta {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  margin-top: 30px;
+  padding-top: 20px;
+}
+
+@media print {
+  .toc { display: none; }
+  .layout { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="doc">
+  <header class="cover">
+    <p class="cover-eyebrow">要件定義書 &middot; Requirements Definition</p>
+    <h1>タスク管理アプリ（単一ページ・ローカル保存版）</h1>
+    <dl class="cover-meta">
+      <div><dt>版数</dt><dd>v1.0</dd></div>
+      <div><dt>作成日</dt><dd>2026-09-14</dd></div>
+      <div><dt>ステータス</dt><dd><span class="badge done">実装済み</span></dd></div>
+      <div><dt>実行環境</dt><dd>ブラウザ単体（ビルド・サーバー不要）</dd></div>
+      <div><dt>保存先</dt><dd>C:\Users\kazki\task-manager-app\</dd></div>
+    </dl>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="目次">
+      <p class="toc-title">目次</p>
+      <ol>
+        <li><a href="#s1"><span class="n">01</span>目的・背景</a></li>
+        <li><a href="#s2"><span class="n">02</span>対象ユーザー</a></li>
+        <li><a href="#s3"><span class="n">03</span>スコープ</a></li>
+        <li><a href="#s4"><span class="n">04</span>機能要件</a></li>
+        <li><a href="#s5"><span class="n">05</span>非機能要件</a></li>
+        <li><a href="#s6"><span class="n">06</span>データモデル</a></li>
+        <li><a href="#s7"><span class="n">07</span>画面構成</a></li>
+        <li><a href="#s8"><span class="n">08</span>制約・既知の限界</a></li>
+        <li><a href="#s9"><span class="n">09</span>今後の拡張候補</a></li>
+      </ol>
+    </nav>
+
+    <main class="content">
+
+      <section class="card" id="s1">
+        <div class="sec-head"><span class="n">01</span><h2>目的・背景</h2></div>
+        <p class="lead">日々のタスクを、インストールや会員登録なしに、すぐ書き出して管理できるようにする。</p>
+        <p>サーバーやアカウントを介さず、手元のPCだけで完結する個人用のタスク管理ツールを用意する。ブラウザを閉じても内容が消えないことを最優先の要件とし、機能はカンバン形式のボード管理に絞ってシンプルに保つ。</p>
+      </section>
+
+      <section class="card" id="s2">
+        <div class="sec-head"><span class="n">02</span><h2>対象ユーザー</h2></div>
+        <ul class="plain">
+          <li>個人でタスクを管理したい1名（マルチユーザー・共有は対象外）</li>
+          <li>Windows PC上のブラウザ（Chrome / Edge 等）で、同一ファイルを継続して開く利用者</li>
+        </ul>
+      </section>
+
+      <section class="card" id="s3">
+        <div class="sec-head"><span class="n">03</span><h2>スコープ</h2></div>
+        <div class="two-col">
+          <div class="box in">
+            <h4>対象内</h4>
+            <ul class="plain">
+              <li>タスクの追加・編集・削除・閲覧</li>
+              <li>3列カンバン（未着手／進行中／完了）とドラッグ&amp;ドロップ</li>
+              <li>期限・優先度・カテゴリ/タグの管理</li>
+              <li>カテゴリ・優先度によるフィルタ表示</li>
+              <li>ブラウザ内（localStorage）への自動保存</li>
+            </ul>
+          </div>
+          <div class="box out">
+            <h4>対象外</h4>
+            <ul class="plain">
+              <li>複数端末・複数ブラウザ間の同期</li>
+              <li>ユーザー登録・ログイン・権限管理</li>
+              <li>他者との共有・コメント・通知</li>
+              <li>サーバーサイド保存（DB・API）</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="s4">
+        <div class="sec-head"><span class="n">04</span><h2>機能要件</h2></div>
+
+        <h3>4.1 タスクのCRUD</h3>
+        <p>「+ タスク追加」からモーダルを開き、タイトル（必須）・詳細・期限・優先度・カテゴリを入力して保存する。既存カードをクリックすると同じモーダルが編集モードで開き、削除ボタンも表示される。</p>
+
+        <h3>4.2 カンバンボード</h3>
+        <p>タスクは「未着手」「進行中」「完了」の3列で管理する。カードはドラッグ&amp;ドロップで列間を移動でき、移動と同時にステータスが更新・保存される。各列の見出しには件数を表示する。</p>
+
+        <h3>4.3 期限・優先度</h3>
+        <p>優先度は高・中・低の3段階。カード内は優先度バッジで色分けし（<span class="badge high">高</span> <span class="badge mid">中</span> <span class="badge low">低</span>）、列内は優先度→期限の順で自動ソートする。期限が本日より前かつ未完了のタスクは「期限超過」として赤バッジで強調する。</p>
+
+        <h3>4.4 カテゴリ／タグ</h3>
+        <p>カンマ区切りで自由入力し、カード下部にタグとして表示する。入力済みのカテゴリはヘッダーのフィルタ選択肢に自動反映される。</p>
+
+        <h3>4.5 フィルタリング</h3>
+        <p>ヘッダーのカテゴリ・優先度セレクトで各列の表示を絞り込む。フィルタは全列に共通して適用される。</p>
+
+        <h3>4.6 データ永続化</h3>
+        <p>すべての変更（追加・編集・削除・移動）は都度 <code>localStorage</code> に保存する。ページの再読み込みやブラウザの再起動後も、同一ブラウザ・同一ファイルパスであればデータが復元される。</p>
+      </section>
+
+      <section class="card" id="s5">
+        <div class="sec-head"><span class="n">05</span><h2>非機能要件</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>要件</th></tr></thead>
+            <tbody>
+              <tr><td>構成</td><td>ビルドツール・サーバー・外部依存なし。<code>index.html</code> をブラウザで開くだけで動作</td></tr>
+              <tr><td>オフライン動作</td><td>ネットワーク接続不要。すべてローカルで完結</td></tr>
+              <tr><td>応答性</td><td>操作（追加・編集・移動）は保存を含め体感で即時反映</td></tr>
+              <tr><td>レスポンシブ</td><td>スマホ幅（〜400px）でも1カラム表示に切り替わり操作可能</td></tr>
+              <tr><td>配色</td><td>OSのライト／ダークテーマ設定に自動追従</td></tr>
+              <tr><td>保守性</td><td>素のHTML/CSS/JSのみで構成し、コード量を最小限に保つ</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="s6">
+        <div class="sec-head"><span class="n">06</span><h2>データモデル</h2></div>
+        <p>1タスク＝1オブジェクトとして <code>localStorage</code> のキー <code>task-manager-app:tasks</code> にJSON配列で保存する。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">id</td><td>string</td><td>生成時刻＋乱数によるユニークID</td></tr>
+              <tr><td class="mono">title</td><td>string</td><td>タイトル（必須・最大100文字）</td></tr>
+              <tr><td class="mono">description</td><td>string</td><td>詳細（任意・最大500文字）</td></tr>
+              <tr><td class="mono">dueDate</td><td>string | ""</td><td>期限（<code>YYYY-MM-DD</code>、任意）</td></tr>
+              <tr><td class="mono">priority</td><td>"high" | "mid" | "low"</td><td>優先度（初期値: mid）</td></tr>
+              <tr><td class="mono">categories</td><td>string[]</td><td>カテゴリ／タグの配列</td></tr>
+              <tr><td class="mono">status</td><td>"todo" | "doing" | "done"</td><td>カンバン上の列</td></tr>
+              <tr><td class="mono">createdAt</td><td>string (ISO)</td><td>作成日時</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="s7">
+        <div class="sec-head"><span class="n">07</span><h2>画面構成</h2></div>
+        <ul class="plain">
+          <li><strong>ヘッダー</strong> — アプリ名、カテゴリ/優先度フィルタ、「+ タスク追加」ボタン</li>
+          <li><strong>ボード</strong> — 未着手／進行中／完了の3カラム。各カラムはカードのドロップ先</li>
+          <li><strong>タスクカード</strong> — タイトル、詳細抜粋、優先度バッジ、期限バッジ、カテゴリタグ</li>
+          <li><strong>タスクモーダル</strong> — 追加・編集共通フォーム（タイトル／詳細／期限／優先度／カテゴリ）と削除操作</li>
+        </ul>
+      </section>
+
+      <section class="card" id="s8">
+        <div class="sec-head"><span class="n">08</span><h2>制約・既知の限界</h2></div>
+        <div class="note">localStorageは「ブラウザ×保存元（ファイルパス／オリジン）」単位で保持される。別のブラウザで開いた場合や、フォルダ構成を変更した場合はデータを引き継げない。</div>
+        <ul class="plain">
+          <li>ブラウザのキャッシュ／サイトデータを消去するとタスクも失われる</li>
+          <li>他端末・他ブラウザとの同期手段は提供しない</li>
+          <li>複数人での同時編集・共有は想定していない</li>
+          <li>エクスポート／インポート機能は現時点では未実装</li>
+        </ul>
+      </section>
+
+      <section class="card" id="s9">
+        <div class="sec-head"><span class="n">09</span><h2>今後の拡張候補</h2></div>
+        <p class="lead">現時点では未着手。必要になった場合の候補として記録する。</p>
+        <ul class="plain">
+          <li>JSONエクスポート／インポートによるバックアップ・移行</li>
+          <li>列（ステータス）のカスタマイズ・追加</li>
+          <li>並び替え順の手動指定（ドラッグでの順序変更）</li>
+          <li>サブタスク・チェックリスト</li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+
+  <p class="footer-meta">タスク管理アプリ（task-manager-app）付属ドキュメント &middot; v1.0</p>
+</div>
