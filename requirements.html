@@ -385,7 +385,7 @@ body {
 
     <!-- 04 機能要件 -->
     <section class="list" aria-label="機能要件">
-      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">7</span></div>
+      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">9</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -395,12 +395,12 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.2 カンバンボード</h3>
-          <p class="card-desc">未着手/進行中/完了の3列。ドラッグ&amp;ドロップで列間を移動でき、移動と同時にステータスを保存。各列見出しに件数を表示。</p>
+          <p class="card-desc">未着手/進行中/完了の3列(列はカスタマイズ可能)。ドラッグ&amp;ドロップで列間を移動でき、移動と同時にステータスを保存。各列見出しに件数を表示。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.3 期限・優先度</h3>
-          <p class="card-desc">優先度は高・中・低の3段階でバッジ色分け。列内は優先度→期限順に自動ソートし、期限超過は赤バッジで強調。</p>
+          <p class="card-desc">優先度は高・中・低の3段階でバッジ色分け。期限超過は赤バッジで強調。列内の並び順はドラッグによる手動並び替えで管理する。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -421,6 +421,16 @@ body {
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.7 サブタスク/チェックリスト</h3>
           <p class="card-desc">タスクモーダル内で項目を追加・チェック・削除できるチェックリストを持たせる。カードには完了数/全体数のバッジを表示。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.8 列のカスタマイズ</h3>
+          <p class="card-desc">列見出しクリックで名称変更、「+ 列を追加」で新しい列を追加できる。タスクが残っている列と最後の1列は削除できない。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.9 手動並び替え</h3>
+          <p class="card-desc">列内・列間でカードをドラッグして自由な順序に並び替えられる。並び順はタスクごとに保持され、再読み込み後も維持される。</p>
         </article>
       </div>
     </section>
@@ -464,7 +474,7 @@ body {
 
     <!-- 06 データモデル -->
     <section class="list" aria-label="データモデル">
-      <div class="list-header"><h2>06 データモデル</h2><span class="list-count">9</span></div>
+      <div class="list-header"><h2>06 データモデル</h2><span class="list-count">11</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-sky">string</span></div>
@@ -511,6 +521,16 @@ body {
           <h3 class="card-title mono">checklist</h3>
           <p class="card-desc">サブタスクの配列({id, text, done}[])</p>
         </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-sky">number</span></div>
+          <h3 class="card-title mono">order</h3>
+          <p class="card-desc">列内の表示順。ドラッグ操作のたびに列単位で振り直す</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-yellow">columns</span></div>
+          <h3 class="card-title mono">{id, name}[]</h3>
+          <p class="card-desc">列の定義。タスクとは別に localStorage(<code>task-manager-app:columns</code>)へ保存</p>
+        </article>
       </div>
     </section>
 
@@ -526,7 +546,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
           <h3 class="card-title">ボード</h3>
-          <p class="card-desc">未着手/進行中/完了の3カラム。各カラムはカードのドロップ先。</p>
+          <p class="card-desc">横スクロール可能なカラム列。各カラムはカードのドロップ先で、列見出しクリックで名称変更、末尾の「+ 列を追加」で新規列を追加できる。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
@@ -543,7 +563,7 @@ body {
 
     <!-- 08 制約・既知の限界 -->
     <section class="list" aria-label="制約・既知の限界">
-      <div class="list-header"><h2>08 制約・既知の限界</h2><span class="list-count">5</span></div>
+      <div class="list-header"><h2>08 制約・既知の限界</h2><span class="list-count">6</span></div>
       <div class="list-cards">
         <article class="card card-note">
           <div class="card-labels"><span class="label lbl-red">要注意</span></div>
@@ -570,27 +590,22 @@ body {
           <h3 class="card-title">未実装機能</h3>
           <p class="card-desc">エクスポート/インポート機能は現時点では未実装。</p>
         </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-red">制約</span></div>
+          <h3 class="card-title">列削除の制約</h3>
+          <p class="card-desc">タスクが残っている列、および最後の1列は削除できない。先にタスクを移動する必要がある。</p>
+        </article>
       </div>
     </section>
 
     <!-- 09 今後の拡張候補 -->
     <section class="list" aria-label="今後の拡張候補">
-      <div class="list-header"><h2>09 今後の拡張候補</h2><span class="list-count">3</span></div>
+      <div class="list-header"><h2>09 今後の拡張候補</h2><span class="list-count">1</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
           <h3 class="card-title">エクスポート/インポート</h3>
           <p class="card-desc">JSONによるバックアップ・移行手段を用意する。</p>
-        </article>
-        <article class="card">
-          <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
-          <h3 class="card-title">列のカスタマイズ</h3>
-          <p class="card-desc">ステータス列の追加・名称変更に対応する。</p>
-        </article>
-        <article class="card">
-          <div class="card-labels"><span class="label lbl-pink">候補</span><span class="label lbl-slate">未着手</span></div>
-          <h3 class="card-title">手動並び替え</h3>
-          <p class="card-desc">列内でのドラッグによる順序指定に対応する。</p>
         </article>
       </div>
     </section>

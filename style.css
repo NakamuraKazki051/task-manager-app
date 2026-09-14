@@ -144,16 +144,16 @@ button {
 .btn-danger:hover { background: var(--danger); color: white; }
 
 .board {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  align-items: flex-start;
   gap: 14px;
   padding: 18px 20px 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  overflow-x: auto;
 }
 
 @media (max-width: 720px) {
-  .board { grid-template-columns: 1fr; }
+  .board { flex-direction: column; overflow-x: visible; }
+  .column { width: 100%; }
 }
 
 .column {
@@ -161,6 +161,8 @@ button {
   border-radius: 12px;
   padding: 10px;
   min-height: 200px;
+  flex: 0 0 260px;
+  width: 260px;
   display: flex;
   flex-direction: column;
 }
@@ -178,6 +180,75 @@ button {
   align-items: center;
   gap: 8px;
   color: var(--list-header);
+}
+
+.column-name {
+  flex: 1;
+  min-width: 0;
+  cursor: text;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 4px;
+  overflow-wrap: break-word;
+}
+.column-name:hover { background: rgba(9, 30, 66, 0.06); }
+@media (prefers-color-scheme: dark) {
+  .column-name:hover { background: rgba(255, 255, 255, 0.08); }
+}
+
+.column-name-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--list-header);
+  padding: 2px 4px;
+}
+
+.column-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.column:hover .column-delete,
+.column:focus-within .column-delete { opacity: 1; }
+.column-delete:hover { background: var(--border); color: var(--danger); }
+
+.column.add-column {
+  background: rgba(255, 255, 255, 0.14);
+  min-height: unset;
+}
+@media (prefers-color-scheme: dark) {
+  .column.add-column { background: rgba(255, 255, 255, 0.06); }
+}
+
+.add-column-btn {
+  background: transparent;
+  color: var(--text-oncolor);
+  text-align: left;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.add-column-btn:hover { background: rgba(255, 255, 255, 0.16); }
+
+.add-column-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.add-column-form input { width: 100%; }
+
+.add-column-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .count {

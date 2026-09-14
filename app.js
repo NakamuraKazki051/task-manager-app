@@ -1,5 +1,10 @@
 const STORAGE_KEY = 'task-manager-app:tasks';
-const STATUSES = ['todo', 'doing', 'done'];
+const COLUMNS_KEY = 'task-manager-app:columns';
+const DEFAULT_COLUMNS = [
+  { id: 'todo', name: '未着手' },
+  { id: 'doing', name: '進行中' },
+  { id: 'done', name: '完了' },
+];
 const PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
 const PRIORITY_ORDER = { high: 0, mid: 1, low: 2 };
 const TAG_COLORS = ['sky', 'lime', 'green', 'red', 'azure', 'purple', 'yellow', 'orange', 'pink', 'slate'];
@@ -11,6 +16,7 @@ function tagColorClass(name) {
 }
 
 let tasks = loadTasks();
+let columns = loadColumns();
 let editingId = null;
 let currentChecklist = [];
 
@@ -31,6 +37,51 @@ function saveTasks() {
     console.error('Failed to save tasks to localStorage', e);
     alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
   }
+}
+
+function loadColumns() {
+  try {
+    const raw = localStorage.getItem(COLUMNS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_COLUMNS.map(c => ({ ...c }));
+  } catch (e) {
+    console.error('Failed to load columns from localStorage', e);
+    return DEFAULT_COLUMNS.map(c => ({ ...c }));
+  }
+}
+
+function saveColumns() {
+  try {
+    localStorage.setItem(COLUMNS_KEY, JSON.stringify(columns));
+  } catch (e) {
+    console.error('Failed to save columns to localStorage', e);
+    alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
+  }
+}
+
+function ensureTaskOrder() {
+  let changed = false;
+  columns.forEach(col => {
+    const inColumn = tasks.filter(t => t.status === col.id);
+    if (inColumn.every(t => typeof t.order === 'number')) return;
+    inColumn.sort((a, b) => {
+      const pd = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+      if (pd !== 0) return pd;
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return 0;
+    });
+    inColumn.forEach((t, idx) => { t.order = idx; });
+    changed = true;
+  });
+  if (changed) saveTasks();
+}
+
+function nextOrder(status) {
+  const inColumn = tasks.filter(t => t.status === status);
+  if (!inColumn.length) return 0;
+  return Math.max(...inColumn.map(t => t.order ?? 0)) + 1;
 }
 
 function uid() {
@@ -59,25 +110,48 @@ function render() {
   const filterPriority = document.getElementById('filterPriority').value;
 
   renderCategoryFilterOptions(filterCategory);
+  renderColumns(filterCategory, filterPriority);
+}
 
-  STATUSES.forEach(status => {
-    const list = document.getElementById(`list-${status}`);
-    list.innerHTML = '';
+function renderColumns(filterCategory, filterPriority) {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
 
-    let filtered = tasks.filter(t => t.status === status);
+  columns.forEach(col => {
+    const section = document.createElement('section');
+    section.className = 'column';
+    section.dataset.status = col.id;
+
+    const h2 = document.createElement('h2');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'column-name';
+    nameSpan.textContent = col.name;
+    nameSpan.title = 'クリックして列名を編集';
+    const count = document.createElement('span');
+    count.className = 'count';
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'column-delete';
+    delBtn.textContent = '×';
+    delBtn.setAttribute('aria-label', '列を削除');
+
+    h2.appendChild(nameSpan);
+    h2.appendChild(count);
+    h2.appendChild(delBtn);
+
+    const list = document.createElement('div');
+    list.className = 'card-list';
+
+    section.appendChild(h2);
+    section.appendChild(list);
+    board.appendChild(section);
+
+    let filtered = tasks.filter(t => t.status === col.id);
     if (filterCategory) filtered = filtered.filter(t => (t.categories || []).includes(filterCategory));
     if (filterPriority) filtered = filtered.filter(t => t.priority === filterPriority);
+    filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    filtered.sort((a, b) => {
-      const pd = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-      if (pd !== 0) return pd;
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      return 0;
-    });
-
-    document.getElementById(`count-${status}`).textContent = filtered.length;
+    count.textContent = filtered.length;
 
     if (filtered.length === 0) {
       const hint = document.createElement('div');
@@ -87,7 +161,103 @@ function render() {
     }
 
     filtered.forEach(task => list.appendChild(renderCard(task)));
+
+    nameSpan.addEventListener('click', () => startEditColumnName(col, nameSpan));
+    delBtn.addEventListener('click', () => deleteColumn(col.id));
+    setupDropZone(section, list, col.id);
   });
+
+  board.appendChild(renderAddColumn());
+}
+
+function startEditColumnName(col, nameSpan) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'column-name-input';
+  input.value = col.name;
+  input.maxLength = 30;
+  nameSpan.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const val = input.value.trim();
+    if (val) col.name = val;
+    saveColumns();
+    render();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { e.preventDefault(); committed = true; render(); }
+  });
+}
+
+function deleteColumn(id) {
+  if (columns.length <= 1) { alert('最後の列は削除できません。'); return; }
+  const hasTasks = tasks.some(t => t.status === id);
+  if (hasTasks) { alert('この列にはタスクがあります。先にタスクを他の列へ移動してください。'); return; }
+  if (!confirm('この列を削除しますか?')) return;
+  columns = columns.filter(c => c.id !== id);
+  saveColumns();
+  render();
+}
+
+function renderAddColumn() {
+  const wrap = document.createElement('section');
+  wrap.className = 'column add-column';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'add-column-btn';
+  btn.textContent = '+ 列を追加';
+
+  const form = document.createElement('form');
+  form.className = 'add-column-form hidden';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = '列名を入力';
+  input.maxLength = 30;
+  const formActions = document.createElement('div');
+  formActions.className = 'add-column-actions';
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'submit';
+  confirmBtn.className = 'btn-primary';
+  confirmBtn.textContent = '追加';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary';
+  cancelBtn.textContent = 'キャンセル';
+  formActions.appendChild(confirmBtn);
+  formActions.appendChild(cancelBtn);
+  form.appendChild(input);
+  form.appendChild(formActions);
+
+  btn.addEventListener('click', () => {
+    btn.classList.add('hidden');
+    form.classList.remove('hidden');
+    input.focus();
+  });
+  cancelBtn.addEventListener('click', () => {
+    form.classList.add('hidden');
+    btn.classList.remove('hidden');
+    input.value = '';
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!name) return;
+    columns.push({ id: uid(), name });
+    saveColumns();
+    render();
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(form);
+  return wrap;
 }
 
 function renderCategoryFilterOptions(selectedValue) {
@@ -149,26 +319,49 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function setupDropZones() {
-  STATUSES.forEach(status => {
-    const column = document.querySelector(`.column[data-status="${status}"]`);
-    column.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      column.classList.add('drag-over');
-    });
-    column.addEventListener('dragleave', () => column.classList.remove('drag-over'));
-    column.addEventListener('drop', (e) => {
-      e.preventDefault();
-      column.classList.remove('drag-over');
-      const id = e.dataTransfer.getData('text/plain');
-      const task = tasks.find(t => t.id === id);
-      if (task && task.status !== status) {
-        task.status = status;
-        saveTasks();
-        render();
-      }
-    });
+function setupDropZone(section, list, statusId) {
+  section.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    section.classList.add('drag-over');
+    const dragging = document.querySelector('.task-card.dragging');
+    if (!dragging) return;
+    list.querySelector('.empty-hint')?.remove();
+    const after = getDragAfterElement(list, e.clientY);
+    if (after == null) {
+      list.appendChild(dragging);
+    } else {
+      list.insertBefore(dragging, after);
+    }
   });
+  section.addEventListener('dragleave', (e) => {
+    if (!section.contains(e.relatedTarget)) section.classList.remove('drag-over');
+  });
+  section.addEventListener('drop', (e) => {
+    e.preventDefault();
+    section.classList.remove('drag-over');
+    const id = e.dataTransfer.getData('text/plain');
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    task.status = statusId;
+    [...list.querySelectorAll('.task-card')].forEach((el, idx) => {
+      const t = tasks.find(t2 => t2.id === el.dataset.id);
+      if (t) t.order = idx;
+    });
+    saveTasks();
+    render();
+  });
+}
+
+function getDragAfterElement(container, y) {
+  const elements = [...container.querySelectorAll('.task-card:not(.dragging)')];
+  return elements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset, element: child };
+    }
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
 }
 
 function openModal(task) {
@@ -265,7 +458,8 @@ function handleSubmit(e) {
     const task = tasks.find(t => t.id === editingId);
     Object.assign(task, data);
   } else {
-    tasks.push({ id: uid(), status: 'todo', createdAt: new Date().toISOString(), ...data });
+    const status = columns[0] ? columns[0].id : 'todo';
+    tasks.push({ id: uid(), status, order: nextOrder(status), createdAt: new Date().toISOString(), ...data });
   }
 
   saveTasks();
@@ -304,5 +498,5 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-setupDropZones();
+ensureTaskOrder();
 render();
