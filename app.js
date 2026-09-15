@@ -303,7 +303,11 @@ function renderCard(task) {
     e.dataTransfer.setData('text/plain', task.id);
     e.dataTransfer.effectAllowed = 'move';
   });
-  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    // drop先が無効だった場合、dragover中に移動したDOMが実データとズレたままになるため再描画して同期する
+    render();
+  });
 
   return card;
 }
