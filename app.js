@@ -1,9 +1,9 @@
 const STORAGE_KEY = 'task-manager-app:tasks';
 const COLUMNS_KEY = 'task-manager-app:columns';
 const DEFAULT_COLUMNS = [
-  { id: 'todo', name: '未着手' },
-  { id: 'doing', name: '進行中' },
-  { id: 'done', name: '完了' },
+  { id: 'todo', name: '未着手', done: false },
+  { id: 'doing', name: '進行中', done: false },
+  { id: 'done', name: '完了', done: true },
 ];
 const PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
 const PRIORITY_ORDER = { high: 0, mid: 1, low: 2 };
@@ -43,7 +43,10 @@ function loadColumns() {
   try {
     const raw = localStorage.getItem(COLUMNS_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_COLUMNS.map(c => ({ ...c }));
+    const cols = Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_COLUMNS.map(c => ({ ...c }));
+    // 旧バージョンのデータには done フラグが無いため、元のデフォルト「完了」列のIDだけ true として補う
+    cols.forEach(c => { if (typeof c.done !== 'boolean') c.done = c.id === 'done'; });
+    return cols;
   } catch (e) {
     console.error('Failed to load columns from localStorage', e);
     return DEFAULT_COLUMNS.map(c => ({ ...c }));
@@ -89,11 +92,13 @@ function uid() {
 }
 
 function parseCategories(str) {
-  return str.split(',').map(s => s.trim()).filter(Boolean);
+  const list = str.split(',').map(s => s.trim()).filter(Boolean);
+  return [...new Set(list)];
 }
 
 function isOverdue(task) {
-  if (!task.dueDate || task.status === 'done') return false;
+  const column = columns.find(c => c.id === task.status);
+  if (!task.dueDate || (column && column.done)) return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return new Date(task.dueDate) < today;
@@ -129,6 +134,15 @@ function renderColumns(filterCategory, filterPriority) {
     nameSpan.title = 'クリックして列名を編集';
     const count = document.createElement('span');
     count.className = 'count';
+    const doneBtn = document.createElement('button');
+    doneBtn.type = 'button';
+    doneBtn.className = 'column-done-toggle';
+    doneBtn.classList.toggle('active', !!col.done);
+    doneBtn.textContent = '✓';
+    doneBtn.setAttribute('aria-pressed', String(!!col.done));
+    doneBtn.title = col.done
+      ? 'この列は完了扱いです(クリックで解除)'
+      : 'この列を完了扱いにする(期限超過の表示を消す)';
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'column-delete';
@@ -137,6 +151,7 @@ function renderColumns(filterCategory, filterPriority) {
 
     h2.appendChild(nameSpan);
     h2.appendChild(count);
+    h2.appendChild(doneBtn);
     h2.appendChild(delBtn);
 
     const list = document.createElement('div');
@@ -163,6 +178,7 @@ function renderColumns(filterCategory, filterPriority) {
     filtered.forEach(task => list.appendChild(renderCard(task)));
 
     nameSpan.addEventListener('click', () => startEditColumnName(col, nameSpan));
+    doneBtn.addEventListener('click', () => toggleColumnDone(col));
     delBtn.addEventListener('click', () => deleteColumn(col.id));
     setupDropZone(section, list, col.id);
   });
@@ -196,6 +212,12 @@ function startEditColumnName(col, nameSpan) {
   });
 }
 
+function toggleColumnDone(col) {
+  col.done = !col.done;
+  saveColumns();
+  render();
+}
+
 function deleteColumn(id) {
   if (columns.length <= 1) { alert('最後の列は削除できません。'); return; }
   const hasTasks = tasks.some(t => t.status === id);
@@ -221,6 +243,12 @@ function renderAddColumn() {
   input.type = 'text';
   input.placeholder = '列名を入力';
   input.maxLength = 30;
+  const doneLabel = document.createElement('label');
+  doneLabel.className = 'add-column-done';
+  const doneCheckbox = document.createElement('input');
+  doneCheckbox.type = 'checkbox';
+  doneLabel.appendChild(doneCheckbox);
+  doneLabel.appendChild(document.createTextNode('完了扱いの列にする'));
   const formActions = document.createElement('div');
   formActions.className = 'add-column-actions';
   const confirmBtn = document.createElement('button');
@@ -234,6 +262,7 @@ function renderAddColumn() {
   formActions.appendChild(confirmBtn);
   formActions.appendChild(cancelBtn);
   form.appendChild(input);
+  form.appendChild(doneLabel);
   form.appendChild(formActions);
 
   btn.addEventListener('click', () => {
@@ -245,12 +274,13 @@ function renderAddColumn() {
     form.classList.add('hidden');
     btn.classList.remove('hidden');
     input.value = '';
+    doneCheckbox.checked = false;
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const name = input.value.trim();
     if (!name) return;
-    columns.push({ id: uid(), name });
+    columns.push({ id: uid(), name, done: doneCheckbox.checked });
     saveColumns();
     render();
   });
@@ -376,6 +406,9 @@ function openModal(task) {
   document.getElementById('taskDesc').value = task ? (task.description || '') : '';
   document.getElementById('taskDue').value = task ? (task.dueDate || '') : '';
   document.getElementById('taskPriority').value = task ? task.priority : 'mid';
+  const statusSelect = document.getElementById('taskStatus');
+  statusSelect.innerHTML = columns.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+  statusSelect.value = task ? task.status : columns[0].id;
   document.getElementById('taskCategory').value = task ? (task.categories || []).join(', ') : '';
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
   currentChecklist = task ? (task.checklist || []).map(i => ({ ...i })) : [];
@@ -457,13 +490,17 @@ function handleSubmit(e) {
     categories: parseCategories(document.getElementById('taskCategory').value),
     checklist: currentChecklist,
   };
+  const selectedStatus = document.getElementById('taskStatus').value || (columns[0] ? columns[0].id : 'todo');
 
   if (editingId) {
     const task = tasks.find(t => t.id === editingId);
+    if (task.status !== selectedStatus) {
+      data.status = selectedStatus;
+      data.order = nextOrder(selectedStatus);
+    }
     Object.assign(task, data);
   } else {
-    const status = columns[0] ? columns[0].id : 'todo';
-    tasks.push({ id: uid(), status, order: nextOrder(status), createdAt: new Date().toISOString(), ...data });
+    tasks.push({ id: uid(), status: selectedStatus, order: nextOrder(selectedStatus), createdAt: new Date().toISOString(), ...data });
   }
 
   saveTasks();
@@ -513,14 +550,22 @@ function handleImportFile(e) {
     columns = data.columns.map(c => ({
       id: c && c.id != null ? String(c.id) : uid(),
       name: c && c.name ? String(c.name) : '無題の列',
+      done: !!(c && c.done),
     }));
     tasks = data.tasks.map(t => ({
       ...t,
       id: t && t.id != null ? String(t.id) : uid(),
+      title: t && t.title ? String(t.title) : '無題のタスク',
+      description: t && t.description ? String(t.description) : '',
+      dueDate: t && typeof t.dueDate === 'string' ? t.dueDate : '',
       status: columns.some(c => c.id === (t && t.status)) ? t.status : columns[0].id,
       priority: PRIORITY_LABEL[t && t.priority] ? t.priority : 'mid',
-      categories: Array.isArray(t && t.categories) ? t.categories : [],
-      checklist: Array.isArray(t && t.checklist) ? t.checklist : [],
+      categories: [...new Set((Array.isArray(t && t.categories) ? t.categories : [])
+        .filter(c => typeof c === 'string' && c.trim())
+        .map(c => c.trim()))],
+      checklist: (Array.isArray(t && t.checklist) ? t.checklist : [])
+        .filter(i => i && typeof i.text === 'string' && i.text.trim())
+        .map(i => ({ id: i.id != null ? String(i.id) : uid(), text: String(i.text), done: !!i.done })),
     }));
     ensureTaskOrder();
     saveColumns();
