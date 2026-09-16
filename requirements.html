@@ -312,8 +312,8 @@ body {
     <span class="subtitle">Requirements Board</span>
   </div>
   <div class="chip-row">
-    <span class="chip">v1.0</span>
-    <span class="chip">2026-09-14</span>
+    <span class="chip">v1.1</span>
+    <span class="chip">2026-09-16</span>
     <span class="chip">実装済み</span>
   </div>
 </div>
@@ -395,12 +395,12 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.2 カンバンボード</h3>
-          <p class="card-desc">未着手/進行中/完了の3列(列はカスタマイズ可能)。ドラッグ&amp;ドロップで列間を移動でき、移動と同時にステータスを保存。各列見出しに件数を表示。</p>
+          <p class="card-desc">未着手/進行中/完了の3列(列はカスタマイズ可能)。ドラッグ&amp;ドロップで列間を移動でき、移動と同時にステータスを保存。タッチ端末などドラッグが使いづらい環境では、タスクモーダルの「ステータス」セレクトからも列を切り替えられる。各列見出しに件数を表示。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.3 期限・優先度</h3>
-          <p class="card-desc">優先度は高・中・低の3段階でバッジ色分け。期限超過は赤バッジで強調。列内の並び順はドラッグによる手動並び替えで管理する。</p>
+          <p class="card-desc">優先度は高・中・低の3段階でバッジ色分け。期限超過は赤バッジで強調。列ごとに「完了扱い」フラグを持たせ、完了扱いの列に入ったタスクは期限超過表示を出さない(列を作り直しても引き継げるよう、IDではなくこのフラグで判定)。列内の並び順はドラッグによる手動並び替えで管理する。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -425,7 +425,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.8 列のカスタマイズ</h3>
-          <p class="card-desc">列見出しクリックで名称変更、「+ 列を追加」で新しい列を追加できる。タスクが残っている列と最後の1列は削除できない。</p>
+          <p class="card-desc">列見出しクリックで名称変更、見出しの✓ボタンで「完了扱い」のON/OFFを切り替え可能。「+ 列を追加」で新しい列を追加でき、追加時に完了扱いにするかも指定できる。タスクが残っている列と最後の1列は削除できない。削除・完了扱いボタンはタッチ端末でも常時表示。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -462,7 +462,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-purple">非機能</span></div>
           <h3 class="card-title">レスポンシブ</h3>
-          <p class="card-desc">スマホ幅(〜400px)でも1カラム表示に切り替わり操作可能。</p>
+          <p class="card-desc">スマホ幅(〜400px)でも1カラム表示に切り替わり操作可能。列の操作ボタンはタッチでも常時表示し、ドラッグに頼らずステータス変更できる手段も用意する。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-purple">非機能</span></div>
@@ -512,9 +512,9 @@ body {
           <p class="card-desc">カテゴリ/タグの配列(string[])</p>
         </article>
         <article class="card">
-          <div class="card-labels"><span class="label lbl-purple">enum</span></div>
+          <div class="card-labels"><span class="label lbl-sky">string</span></div>
           <h3 class="card-title mono">status</h3>
-          <p class="card-desc">"todo" | "doing" | "done"(カンバン上の列)</p>
+          <p class="card-desc">所属する列のid(columnsで定義される任意の文字列。初期値は"todo")</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-orange">date</span></div>
@@ -533,8 +533,8 @@ body {
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">columns</span></div>
-          <h3 class="card-title mono">{id, name}[]</h3>
-          <p class="card-desc">列の定義。タスクとは別に localStorage(<code>task-manager-app:columns</code>)へ保存</p>
+          <h3 class="card-title mono">{id, name, done}[]</h3>
+          <p class="card-desc">列の定義。doneはその列を「完了扱い」にするフラグ(期限超過表示の抑制に使用)。タスクとは別に localStorage(<code>task-manager-app:columns</code>)へ保存</p>
         </article>
       </div>
     </section>
@@ -561,7 +561,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
           <h3 class="card-title">タスクモーダル</h3>
-          <p class="card-desc">追加・編集共通フォーム(タイトル/詳細/期限/優先度/カテゴリ/チェックリスト)と削除操作。</p>
+          <p class="card-desc">追加・編集共通フォーム(タイトル/詳細/ステータス/期限/優先度/カテゴリ/チェックリスト)と削除操作。ステータス欄からドラッグなしで列を移動できる。</p>
         </article>
       </div>
     </section>
