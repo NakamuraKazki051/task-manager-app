@@ -55,3 +55,14 @@
 ## バックエンド（試作）
 
 `backend/` に、独立した試作用のSpring Boot REST API（Java 17 / Spring Boot 4.1.1 / H2）を用意しています。既存のフロントエンド（`index.html` / `app.js`、localStorage保存）とは接続しておらず、要件定義（サーバーサイド保存は対象外）を変更するものではありません。詳細は [`backend/README.md`](./backend/README.md) を参照してください。
+
+## PostgreSQLコンテナ（Docker）
+
+リポジトリ直下の `docker-compose.yml` で、動作確認用のPostgreSQLコンテナ（`taskmanager` データベース）を起動できます。現状バックエンドは引き続きH2を使用しており、このコンテナには接続していません。
+
+```
+docker compose up -d   # 起動（localhost:5432、ユーザー/パスワード: taskmanager）
+docker compose down    # 停止（データはボリュームに保持）
+```
+
+低メモリ環境向けに `postgres:16-alpine` を使用し、コンテナのメモリ上限を256MBに制限しています。
