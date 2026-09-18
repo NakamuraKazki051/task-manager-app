@@ -5,17 +5,24 @@
 ## 技術構成
 
 - Java 17 / Spring Boot 4.1.1
-- Spring Web, Spring Data JPA, H2（ファイルDB: `backend/data/taskmanager.mv.db`）
+- Spring Web, Spring Data JPA, PostgreSQL（本番/開発用途、Dockerコンテナで起動）
+- テスト実行時はH2インメモリDBを使用（`src/test/resources/application.yml`）し、Dockerなしでも `mvn test` が通る
 
 ## 起動方法
 
+事前にリポジトリ直下の `docker-compose.yml` でDBコンテナを起動しておく必要があります。
+
 ```
+docker compose up -d   # リポジトリ直下で実行、taskmanagerデータベースを起動（localhost:5432）
 cd backend
-mvn spring-boot:run
+mvn package
+java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.1.0.jar
 ```
 
 - API: http://localhost:8080/api/...
-- H2コンソール: http://localhost:8080/h2-console （JDBC URL: `jdbc:h2:file:./data/taskmanager`）
+- DB接続先: `jdbc:postgresql://localhost:5432/taskmanager`（ユーザー/パスワード: `taskmanager`、`../docker-compose.yml` 参照）
+
+このマシンはメモリが少ないため、`mvn spring-boot:run` を常駐させず、`mvn package` でビルドしたjarをヒープ制限付きで起動することを推奨します。
 
 ## エンドポイント
 

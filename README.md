@@ -58,11 +58,11 @@
 
 ## PostgreSQLコンテナ（Docker）
 
-リポジトリ直下の `docker-compose.yml` で、動作確認用のPostgreSQLコンテナ（`taskmanager` データベース）を起動できます。現状バックエンドは引き続きH2を使用しており、このコンテナには接続していません。
+リポジトリ直下の `docker-compose.yml` で、`backend/` のSpring Boot APIが使用するPostgreSQLコンテナ（`taskmanager` データベース）を起動できます。
 
 ```
 docker compose up -d   # 起動（localhost:5432、ユーザー/パスワード: taskmanager）
 docker compose down    # 停止（データはボリュームに保持）
 ```
 
-低メモリ環境向けに `postgres:16-alpine` を使用し、コンテナのメモリ上限を256MBに制限しています。
+低メモリ環境向けに `postgres:16-alpine` を使用し、コンテナのメモリ上限を256MBに制限しています。バックエンドの起動方法は [`backend/README.md`](./backend/README.md) を参照してください。
