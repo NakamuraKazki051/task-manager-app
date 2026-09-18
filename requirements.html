@@ -312,8 +312,8 @@ body {
     <span class="subtitle">Requirements Board</span>
   </div>
   <div class="chip-row">
-    <span class="chip">v1.1</span>
-    <span class="chip">2026-09-16</span>
+    <span class="chip">v1.2</span>
+    <span class="chip">2026-09-18</span>
     <span class="chip">実装済み</span>
   </div>
 </div>
@@ -376,7 +376,7 @@ body {
           <ul class="checklist pending">
             <li><span class="chk">・</span>複数端末・複数ブラウザ間の同期</li>
             <li><span class="chk">・</span>ユーザー登録・ログイン・権限管理</li>
-            <li><span class="chk">・</span>他者との共有・コメント・通知</li>
+            <li><span class="chk">・</span>他者との共有・コメント機能(期限リマインダーの単独ブラウザ通知は対象内)</li>
             <li><span class="chk">・</span>サーバーサイド保存(DB・API)</li>
           </ul>
         </article>
@@ -385,7 +385,7 @@ body {
 
     <!-- 04 機能要件 -->
     <section class="list" aria-label="機能要件">
-      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">10</span></div>
+      <div class="list-header"><h2>04 機能要件</h2><span class="list-count">15</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
@@ -435,7 +435,32 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-azure">機能</span></div>
           <h3 class="card-title">4.10 エクスポート/インポート</h3>
-          <p class="card-desc">ヘッダーの「エクスポート」でタスク・列一式をJSONファイルとしてダウンロード。「インポート」で選択したJSONを読み込み、確認のうえ現在のデータと置き換える。</p>
+          <p class="card-desc">ヘッダーの「エクスポート」で現在のボードのタスク・列一式をJSONファイルとしてダウンロード。「インポート」で選択したJSONを読み込み、確認のうえ現在のボードのデータと置き換える。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.11 検索</h3>
+          <p class="card-desc">ヘッダーの検索欄にキーワードを入力すると、タイトル・詳細に部分一致するタスクのみ表示する(大文字小文字を区別しない)。カテゴリ・優先度フィルタと併用可能。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.12 並び替え</h3>
+          <p class="card-desc">「並び替え」セレクトで表示順を手動(ドラッグ順)/期限順(未設定は末尾)/優先度順(高→中→低)から選べる。手動以外を選択中は列内のドラッグによる並び替えプレビューを無効化し、列間移動時は末尾に追加する。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.13 テーマ切り替え</h3>
+          <p class="card-desc">ヘッダーのボタンで「自動(OS追従)→ライト→ダーク」を順に切り替えられる。選択状態は localStorage に保存し、次回起動時も維持する。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.14 期限リマインダー(通知)</h3>
+          <p class="card-desc">期限まで2日以内(超過含む)のタスクにはカードへ「まもなく」バッジを表示。ヘッダーの通知ボタンでブラウザ通知を許可すると、期限当日・超過のタスクがある場合に1日1回ブラウザ通知でまとめて知らせる。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-azure">機能</span></div>
+          <h3 class="card-title">4.15 複数ボード</h3>
+          <p class="card-desc">ヘッダー左上のセレクトでボードを切り替え、+ / ✎ / × ボタンでボードの追加・名称変更・削除ができる。ボードごとに列・タスクは独立して保存され、最後の1ボードは削除できない。初回起動時、旧バージョンの単一ボードデータは自動的に最初のボード「マイボード」へ移行される。</p>
         </article>
       </div>
     </section>
@@ -467,7 +492,7 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-purple">非機能</span></div>
           <h3 class="card-title">配色</h3>
-          <p class="card-desc">OSのライト/ダークテーマ設定に自動追従。</p>
+          <p class="card-desc">既定はOSのライト/ダークテーマ設定に自動追従。ヘッダーのテーマボタンでライト/ダークを手動固定することも可能。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-purple">非機能</span></div>
@@ -479,7 +504,7 @@ body {
 
     <!-- 06 データモデル -->
     <section class="list" aria-label="データモデル">
-      <div class="list-header"><h2>06 データモデル</h2><span class="list-count">11</span></div>
+      <div class="list-header"><h2>06 データモデル</h2><span class="list-count">13</span></div>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-sky">string</span></div>
@@ -534,7 +559,17 @@ body {
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">columns</span></div>
           <h3 class="card-title mono">{id, name, done}[]</h3>
-          <p class="card-desc">列の定義。doneはその列を「完了扱い」にするフラグ(期限超過表示の抑制に使用)。タスクとは別に localStorage(<code>task-manager-app:columns</code>)へ保存</p>
+          <p class="card-desc">列の定義。doneはその列を「完了扱い」にするフラグ(期限超過表示の抑制に使用)。ボードごとに localStorage(<code>task-manager-app:columns:&lt;ボードID&gt;</code>)へ保存</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-yellow">boards</span></div>
+          <h3 class="card-title mono">{id, name}[]</h3>
+          <p class="card-desc">ボード一覧。タスク/列とは別に localStorage(<code>task-manager-app:boards</code>)へ保存。現在選択中のボードIDは <code>task-manager-app:currentBoard</code> に保存</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-yellow">tasks</span></div>
+          <h3 class="card-title mono">task-manager-app:tasks:&lt;ボードID&gt;</h3>
+          <p class="card-desc">ボードごとのタスク配列の保存キー。ボードを切り替えると読み込み直す</p>
         </article>
       </div>
     </section>
@@ -542,11 +577,12 @@ body {
     <!-- 07 画面構成 -->
     <section class="list" aria-label="画面構成">
       <div class="list-header"><h2>07 画面構成</h2><span class="list-count">4</span></div>
+      <p class="card-desc" style="margin: -2px 6px 8px; opacity: 0.85;">実際の見た目は <code>mockup.html</code> を参照</p>
       <div class="list-cards">
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
           <h3 class="card-title">ヘッダー</h3>
-          <p class="card-desc">アプリ名、カテゴリ/優先度フィルタ、エクスポート/インポートボタン、「+ タスク追加」ボタン。</p>
+          <p class="card-desc">アプリ名とボード切り替え(セレクト+追加/名称変更/削除ボタン)、検索欄、カテゴリ/優先度フィルタ、並び替えセレクト、テーマ切り替え/通知ボタン、エクスポート/インポートボタン、「+ タスク追加」ボタン。</p>
         </article>
         <article class="card">
           <div class="card-labels"><span class="label lbl-yellow">画面</span></div>
@@ -568,7 +604,7 @@ body {
 
     <!-- 08 制約・既知の限界 -->
     <section class="list" aria-label="制約・既知の限界">
-      <div class="list-header"><h2>08 制約・既知の限界</h2><span class="list-count">6</span></div>
+      <div class="list-header"><h2>08 制約・既知の限界</h2><span class="list-count">8</span></div>
       <div class="list-cards">
         <article class="card card-note">
           <div class="card-labels"><span class="label lbl-red">要注意</span></div>
@@ -600,10 +636,20 @@ body {
           <h3 class="card-title">列削除の制約</h3>
           <p class="card-desc">タスクが残っている列、および最後の1列は削除できない。先にタスクを移動する必要がある。</p>
         </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-red">制約</span></div>
+          <h3 class="card-title">エクスポート/通知はボード単位</h3>
+          <p class="card-desc">エクスポート・インポートおよび期限通知の集計は、現在開いているボードのタスクのみが対象。他ボードの内容は含まれない。</p>
+        </article>
+        <article class="card">
+          <div class="card-labels"><span class="label lbl-red">制約</span></div>
+          <h3 class="card-title">通知はブラウザ設定に依存</h3>
+          <p class="card-desc">期限通知はブラウザの通知許可(Notification API)が必要で、OS側の通知設定やブラウザ非対応環境では利用できない。</p>
+        </article>
       </div>
     </section>
 
   </div>
 </div>
 
-<p class="footer-note">タスク管理アプリ(task-manager-app)付属ドキュメント &middot; v1.0 &middot; Trello風レイアウト</p>
+<p class="footer-note">タスク管理アプリ(task-manager-app)付属ドキュメント &middot; v1.2 &middot; Trello風レイアウト</p>

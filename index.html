@@ -10,8 +10,17 @@
 </head>
 <body>
   <header class="app-header">
-    <h1>タスク管理</h1>
+    <div class="header-title">
+      <h1>タスク管理</h1>
+      <div class="board-switcher">
+        <select id="boardSelect" aria-label="ボードを選択"></select>
+        <button type="button" id="addBoardBtn" class="icon-btn" title="ボードを追加" aria-label="ボードを追加">+</button>
+        <button type="button" id="renameBoardBtn" class="icon-btn" title="ボード名を変更" aria-label="ボード名を変更">✎</button>
+        <button type="button" id="deleteBoardBtn" class="icon-btn" title="ボードを削除" aria-label="ボードを削除">×</button>
+      </div>
+    </div>
     <div class="header-actions">
+      <input type="search" id="searchInput" class="search-input" placeholder="🔍 検索..." aria-label="タスクを検索">
       <select id="filterCategory">
         <option value="">全カテゴリ</option>
       </select>
@@ -21,6 +30,13 @@
         <option value="mid">中</option>
         <option value="low">低</option>
       </select>
+      <select id="sortSelect" aria-label="並び替え">
+        <option value="manual">並び替え: 手動</option>
+        <option value="due">並び替え: 期限順</option>
+        <option value="priority">並び替え: 優先度順</option>
+      </select>
+      <button type="button" id="themeToggleBtn" class="btn-secondary"></button>
+      <button type="button" id="notifyToggleBtn" class="btn-secondary"></button>
       <button id="exportBtn" class="btn-secondary">エクスポート</button>
       <button id="importBtn" class="btn-secondary">インポート</button>
       <input type="file" id="importFile" accept="application/json,.json" class="hidden">

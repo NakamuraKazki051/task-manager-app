@@ -1,5 +1,10 @@
-const STORAGE_KEY = 'task-manager-app:tasks';
-const COLUMNS_KEY = 'task-manager-app:columns';
+const LEGACY_TASKS_KEY = 'task-manager-app:tasks';
+const LEGACY_COLUMNS_KEY = 'task-manager-app:columns';
+const BOARDS_KEY = 'task-manager-app:boards';
+const CURRENT_BOARD_KEY = 'task-manager-app:currentBoard';
+const THEME_KEY = 'task-manager-app:theme';
+const NOTIFY_KEY = 'task-manager-app:notify';
+const LAST_NOTIFIED_KEY = 'task-manager-app:lastNotifiedDate';
 const DEFAULT_COLUMNS = [
   { id: 'todo', name: '未着手', done: false },
   { id: 'doing', name: '進行中', done: false },
@@ -15,14 +20,61 @@ function tagColorClass(name) {
   return TAG_COLORS[hash % TAG_COLORS.length];
 }
 
-let tasks = loadTasks();
-let columns = loadColumns();
+function taskKey(boardId) { return `task-manager-app:tasks:${boardId}`; }
+function columnKey(boardId) { return `task-manager-app:columns:${boardId}`; }
+
+let boards = loadBoards();
+let currentBoardId = loadCurrentBoardId();
+let tasks = loadTasks(currentBoardId);
+let columns = loadColumns(currentBoardId);
 let editingId = null;
 let currentChecklist = [];
+let currentSort = 'manual';
 
-function loadTasks() {
+function loadBoards() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(BOARDS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed) && parsed.length) {
+      return parsed.map(b => ({ id: String(b.id), name: b && b.name ? String(b.name) : '無題のボード' }));
+    }
+  } catch (e) {
+    console.error('Failed to load boards from localStorage', e);
+  }
+  // 旧バージョン(単一ボードのみ)のデータを新形式(ボードごとの名前空間)へ移行する
+  const legacyTasks = localStorage.getItem(LEGACY_TASKS_KEY);
+  const legacyColumns = localStorage.getItem(LEGACY_COLUMNS_KEY);
+  if (localStorage.getItem(taskKey('default')) == null) {
+    localStorage.setItem(taskKey('default'), legacyTasks != null ? legacyTasks : '[]');
+  }
+  if (localStorage.getItem(columnKey('default')) == null) {
+    localStorage.setItem(columnKey('default'), legacyColumns != null ? legacyColumns : JSON.stringify(DEFAULT_COLUMNS));
+  }
+  const migrated = [{ id: 'default', name: 'マイボード' }];
+  try {
+    localStorage.setItem(BOARDS_KEY, JSON.stringify(migrated));
+  } catch (e) {
+    console.error('Failed to save migrated boards to localStorage', e);
+  }
+  return migrated;
+}
+
+function loadCurrentBoardId() {
+  const id = localStorage.getItem(CURRENT_BOARD_KEY);
+  return (id && boards.some(b => b.id === id)) ? id : boards[0].id;
+}
+
+function saveBoards() {
+  try {
+    localStorage.setItem(BOARDS_KEY, JSON.stringify(boards));
+  } catch (e) {
+    console.error('Failed to save boards to localStorage', e);
+  }
+}
+
+function loadTasks(boardId) {
+  try {
+    const raw = localStorage.getItem(taskKey(boardId));
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     console.error('Failed to load tasks from localStorage', e);
@@ -32,16 +84,16 @@ function loadTasks() {
 
 function saveTasks() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(taskKey(currentBoardId), JSON.stringify(tasks));
   } catch (e) {
     console.error('Failed to save tasks to localStorage', e);
     alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
   }
 }
 
-function loadColumns() {
+function loadColumns(boardId) {
   try {
-    const raw = localStorage.getItem(COLUMNS_KEY);
+    const raw = localStorage.getItem(columnKey(boardId));
     const parsed = raw ? JSON.parse(raw) : null;
     const cols = Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_COLUMNS.map(c => ({ ...c }));
     // 旧バージョンのデータには done フラグが無いため、元のデフォルト「完了」列のIDだけ true として補う
@@ -55,7 +107,7 @@ function loadColumns() {
 
 function saveColumns() {
   try {
-    localStorage.setItem(COLUMNS_KEY, JSON.stringify(columns));
+    localStorage.setItem(columnKey(currentBoardId), JSON.stringify(columns));
   } catch (e) {
     console.error('Failed to save columns to localStorage', e);
     alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
@@ -104,6 +156,17 @@ function isOverdue(task) {
   return new Date(task.dueDate) < today;
 }
 
+function isDueSoon(task) {
+  const column = columns.find(c => c.id === task.status);
+  if (!task.dueDate || (column && column.done)) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(task.dueDate);
+  if (due < today) return false;
+  const diffDays = Math.round((due - today) / 86400000);
+  return diffDays <= 2;
+}
+
 function getAllCategories() {
   const set = new Set();
   tasks.forEach(t => (t.categories || []).forEach(c => set.add(c)));
@@ -113,12 +176,33 @@ function getAllCategories() {
 function render() {
   const filterCategory = document.getElementById('filterCategory').value;
   const filterPriority = document.getElementById('filterPriority').value;
+  const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
   renderCategoryFilterOptions(filterCategory);
-  renderColumns(filterCategory, filterPriority);
+  renderColumns(filterCategory, filterPriority, searchQuery);
 }
 
-function renderColumns(filterCategory, filterPriority) {
+function sortFiltered(filtered) {
+  if (currentSort === 'due') {
+    filtered.sort((a, b) => {
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+  } else if (currentSort === 'priority') {
+    filtered.sort((a, b) => {
+      const pd = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+      if (pd !== 0) return pd;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+  } else {
+    filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+  return filtered;
+}
+
+function renderColumns(filterCategory, filterPriority, searchQuery) {
   const board = document.getElementById('board');
   board.innerHTML = '';
 
@@ -164,7 +248,12 @@ function renderColumns(filterCategory, filterPriority) {
     let filtered = tasks.filter(t => t.status === col.id);
     if (filterCategory) filtered = filtered.filter(t => (t.categories || []).includes(filterCategory));
     if (filterPriority) filtered = filtered.filter(t => t.priority === filterPriority);
-    filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    if (searchQuery) {
+      filtered = filtered.filter(t =>
+        (t.title || '').toLowerCase().includes(searchQuery) ||
+        (t.description || '').toLowerCase().includes(searchQuery));
+    }
+    sortFiltered(filtered);
 
     count.textContent = filtered.length;
 
@@ -305,6 +394,7 @@ function renderCard(task) {
   card.dataset.id = task.id;
 
   const overdue = isOverdue(task);
+  const dueSoon = !overdue && isDueSoon(task);
   const dueLabel = task.dueDate ? formatDate(task.dueDate) : '';
   const checklist = task.checklist || [];
   const checklistDone = checklist.filter(i => i.done).length;
@@ -314,7 +404,7 @@ function renderCard(task) {
     ${task.description ? '<div class="task-card-desc"></div>' : ''}
     <div class="task-meta">
       <span class="badge ${task.priority}">${PRIORITY_LABEL[task.priority]}</span>
-      ${task.dueDate ? `<span class="badge due ${overdue ? 'overdue' : ''}">${dueLabel}${overdue ? ' (期限超過)' : ''}</span>` : ''}
+      ${task.dueDate ? `<span class="badge due ${overdue ? 'overdue' : ''} ${dueSoon ? 'due-soon' : ''}">${dueLabel}${overdue ? ' (期限超過)' : dueSoon ? ' (まもなく)' : ''}</span>` : ''}
       ${checklist.length ? `<span class="badge checklist ${checklistDone === checklist.length ? 'complete' : ''}">✓ ${checklistDone}/${checklist.length}</span>` : ''}
       ${(task.categories || []).map(c => `<span class="tag ${tagColorClass(c)}"></span>`).join('')}
     </div>
@@ -357,6 +447,8 @@ function setupDropZone(section, list, statusId) {
   section.addEventListener('dragover', (e) => {
     e.preventDefault();
     section.classList.add('drag-over');
+    // 手動並び替え以外のソート表示中は、ドロップ時に末尾へ追加するだけなのでプレビュー移動は行わない
+    if (currentSort !== 'manual') return;
     const dragging = document.querySelector('.task-card.dragging');
     if (!dragging) return;
     list.querySelector('.empty-hint')?.remove();
@@ -376,11 +468,16 @@ function setupDropZone(section, list, statusId) {
     const id = e.dataTransfer.getData('text/plain');
     const task = tasks.find(t => t.id === id);
     if (!task) return;
+    const statusChanged = task.status !== statusId;
     task.status = statusId;
-    [...list.querySelectorAll('.task-card')].forEach((el, idx) => {
-      const t = tasks.find(t2 => t2.id === el.dataset.id);
-      if (t) t.order = idx;
-    });
+    if (currentSort === 'manual') {
+      [...list.querySelectorAll('.task-card')].forEach((el, idx) => {
+        const t = tasks.find(t2 => t2.id === el.dataset.id);
+        if (t) t.order = idx;
+      });
+    } else if (statusChanged) {
+      task.order = nextOrder(statusId);
+    }
     saveTasks();
     render();
   });
@@ -506,12 +603,15 @@ function handleSubmit(e) {
   saveTasks();
   closeModal();
   render();
+  checkDueNotifications();
 }
 
 function exportData() {
+  const board = boards.find(b => b.id === currentBoardId);
   const payload = {
     app: 'task-manager-app',
-    version: 1,
+    version: 2,
+    board: board ? board.name : undefined,
     exportedAt: new Date().toISOString(),
     columns,
     tasks,
@@ -545,7 +645,7 @@ function handleImportFile(e) {
       alert('このファイルはタスク管理アプリのバックアップ形式ではないようです。');
       return;
     }
-    if (!confirm('インポートすると現在のタスクと列がすべて置き換わります。よろしいですか?')) return;
+    if (!confirm('インポートすると現在のボードのタスクと列がすべて置き換わります。よろしいですか?')) return;
 
     columns = data.columns.map(c => ({
       id: c && c.id != null ? String(c.id) : uid(),
@@ -571,6 +671,7 @@ function handleImportFile(e) {
     saveColumns();
     saveTasks();
     render();
+    checkDueNotifications();
     alert('インポートが完了しました。');
   };
   reader.onerror = () => alert('ファイルの読み込みに失敗しました。');
@@ -584,6 +685,166 @@ function handleDelete() {
   saveTasks();
   closeModal();
   render();
+}
+
+// --- ボード切り替え ---
+
+function renderBoardSelect() {
+  const select = document.getElementById('boardSelect');
+  select.innerHTML = boards.map(b => `<option value="${escapeHtml(b.id)}">${escapeHtml(b.name)}</option>`).join('');
+  select.value = currentBoardId;
+  document.getElementById('deleteBoardBtn').disabled = boards.length <= 1;
+}
+
+function switchBoard(id) {
+  if (!boards.some(b => b.id === id) || id === currentBoardId) {
+    renderBoardSelect();
+    return;
+  }
+  currentBoardId = id;
+  localStorage.setItem(CURRENT_BOARD_KEY, currentBoardId);
+  tasks = loadTasks(currentBoardId);
+  columns = loadColumns(currentBoardId);
+  ensureTaskOrder();
+  currentSort = 'manual';
+  document.getElementById('sortSelect').value = 'manual';
+  document.getElementById('searchInput').value = '';
+  renderBoardSelect();
+  render();
+  checkDueNotifications();
+}
+
+function addBoard() {
+  const name = prompt('新しいボード名を入力してください', '新しいボード');
+  if (name == null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const id = uid();
+  boards.push({ id, name: trimmed });
+  saveBoards();
+  try {
+    localStorage.setItem(columnKey(id), JSON.stringify(DEFAULT_COLUMNS.map(c => ({ ...c }))));
+    localStorage.setItem(taskKey(id), JSON.stringify([]));
+  } catch (e) {
+    console.error('Failed to initialize new board storage', e);
+  }
+  switchBoard(id);
+}
+
+function renameBoard() {
+  const board = boards.find(b => b.id === currentBoardId);
+  if (!board) return;
+  const name = prompt('ボード名を変更', board.name);
+  if (name == null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  board.name = trimmed;
+  saveBoards();
+  renderBoardSelect();
+}
+
+function deleteBoard() {
+  if (boards.length <= 1) { alert('最後のボードは削除できません。'); return; }
+  const board = boards.find(b => b.id === currentBoardId);
+  if (!board) return;
+  if (!confirm(`ボード「${board.name}」を削除しますか?このボードのタスクと列もすべて削除されます。`)) return;
+  localStorage.removeItem(taskKey(currentBoardId));
+  localStorage.removeItem(columnKey(currentBoardId));
+  boards = boards.filter(b => b.id !== currentBoardId);
+  saveBoards();
+  switchBoard(boards[0].id);
+}
+
+// --- テーマ(ライト/ダーク)手動切り替え ---
+
+function loadTheme() {
+  const theme = localStorage.getItem(THEME_KEY);
+  return theme === 'light' || theme === 'dark' ? theme : 'system';
+}
+
+function applyTheme(theme) {
+  if (theme === 'system') {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = theme;
+  }
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (e) {
+    console.error('Failed to save theme to localStorage', e);
+  }
+  updateThemeBtn(theme);
+}
+
+function updateThemeBtn(theme) {
+  const btn = document.getElementById('themeToggleBtn');
+  const labels = { system: '🖥️ 自動', light: '☀️ ライト', dark: '🌙 ダーク' };
+  btn.textContent = labels[theme];
+  btn.title = 'クリックでテーマを切り替え(自動→ライト→ダーク)';
+}
+
+function cycleTheme() {
+  const order = ['system', 'light', 'dark'];
+  const next = order[(order.indexOf(loadTheme()) + 1) % order.length];
+  applyTheme(next);
+}
+
+// --- 期限リマインダー(通知) ---
+
+function updateNotifyBtn() {
+  const btn = document.getElementById('notifyToggleBtn');
+  if (!('Notification' in window)) {
+    btn.disabled = true;
+    btn.textContent = '🔔 通知非対応';
+    return;
+  }
+  const enabled = localStorage.getItem(NOTIFY_KEY) === 'true' && Notification.permission === 'granted';
+  btn.textContent = enabled ? '🔔 期限通知ON' : '🔕 期限通知OFF';
+  btn.classList.toggle('active', enabled);
+}
+
+function toggleNotify() {
+  if (!('Notification' in window)) return;
+  const enabled = localStorage.getItem(NOTIFY_KEY) === 'true' && Notification.permission === 'granted';
+  if (enabled) {
+    localStorage.setItem(NOTIFY_KEY, 'false');
+    updateNotifyBtn();
+    return;
+  }
+  Notification.requestPermission().then(perm => {
+    if (perm === 'granted') {
+      localStorage.setItem(NOTIFY_KEY, 'true');
+      updateNotifyBtn();
+      checkDueNotifications(true);
+    } else {
+      alert('通知が許可されませんでした。ブラウザの通知設定を確認してください。');
+      updateNotifyBtn();
+    }
+  });
+}
+
+function checkDueNotifications(force) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (localStorage.getItem(NOTIFY_KEY) !== 'true') return;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (!force && localStorage.getItem(LAST_NOTIFIED_KEY) === todayStr) return;
+  const dueTasks = tasks.filter(t => {
+    const col = columns.find(c => c.id === t.status);
+    if (!t.dueDate || (col && col.done)) return false;
+    return t.dueDate <= todayStr;
+  });
+  if (dueTasks.length) {
+    try {
+      new Notification('タスク管理', { body: `本日期限・期限超過のタスクが${dueTasks.length}件あります。` });
+    } catch (e) {
+      console.error('Failed to show notification', e);
+    }
+  }
+  try {
+    localStorage.setItem(LAST_NOTIFIED_KEY, todayStr);
+  } catch (e) {
+    console.error('Failed to save notification date to localStorage', e);
+  }
 }
 
 document.getElementById('addTaskBtn').addEventListener('click', () => openModal(null));
@@ -605,11 +866,26 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
 });
 document.getElementById('filterCategory').addEventListener('change', render);
 document.getElementById('filterPriority').addEventListener('change', render);
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('sortSelect').addEventListener('change', (e) => {
+  currentSort = e.target.value;
+  render();
+});
+document.getElementById('themeToggleBtn').addEventListener('click', cycleTheme);
+document.getElementById('notifyToggleBtn').addEventListener('click', toggleNotify);
+document.getElementById('boardSelect').addEventListener('change', (e) => switchBoard(e.target.value));
+document.getElementById('addBoardBtn').addEventListener('click', addBoard);
+document.getElementById('renameBoardBtn').addEventListener('click', renameBoard);
+document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.getElementById('modalOverlay').classList.contains('hidden')) {
     closeModal();
   }
 });
 
+applyTheme(loadTheme());
+updateNotifyBtn();
+renderBoardSelect();
 ensureTaskOrder();
 render();
+checkDueNotifications();
