@@ -1,11 +1,16 @@
 package com.taskmanager.api.task;
 
+import com.taskmanager.api.board.BoardRepository;
+import com.taskmanager.api.column.BoardColumn;
+import com.taskmanager.api.column.BoardColumnRepository;
 import com.taskmanager.api.common.ApiException;
 import com.taskmanager.api.task.TaskDtos.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -13,9 +18,13 @@ import java.util.List;
 public class TaskController {
 
     private final TaskRepository taskRepository;
+    private final BoardRepository boardRepository;
+    private final BoardColumnRepository columnRepository;
 
-    public TaskController(TaskRepository taskRepository) {
+    public TaskController(TaskRepository taskRepository, BoardRepository boardRepository, BoardColumnRepository columnRepository) {
         this.taskRepository = taskRepository;
+        this.boardRepository = boardRepository;
+        this.columnRepository = columnRepository;
     }
 
     @GetMapping("/api/boards/{boardId}/tasks")
@@ -67,19 +76,34 @@ public class TaskController {
     @PostMapping("/api/boards/{boardId}/tasks")
     @ResponseStatus(HttpStatus.CREATED)
     public TaskResponse create(@PathVariable String boardId, @Valid @RequestBody TaskRequest request) {
-        int nextOrder = taskRepository.findByBoardId(boardId).size();
-        Task task = new Task(boardId, request.columnId(), request.title().trim());
+        if (!boardRepository.existsById(boardId)) {
+            throw ApiException.notFound("ボードが見つかりません: " + boardId);
+        }
+        BoardColumn column = requireColumnInBoard(request.columnId(), boardId);
+        Task task = new Task(boardId, column.getId(), request.title().trim());
         applyRequest(task, request);
-        task.setDisplayOrder(nextOrder);
+        task.setDisplayOrder((int) taskRepository.countByColumnId(column.getId()));
         return TaskResponse.from(taskRepository.save(task));
     }
 
     @PutMapping("/api/tasks/{id}")
+    @Transactional
     public TaskResponse update(@PathVariable String id, @Valid @RequestBody TaskRequest request) {
         Task task = findOrThrow(id);
+        BoardColumn column = requireColumnInBoard(request.columnId(), task.getBoardId());
         task.setTitle(request.title().trim());
         applyRequest(task, request);
-        return TaskResponse.from(taskRepository.save(task));
+
+        if (!task.getColumnId().equals(column.getId())) {
+            String previousColumnId = task.getColumnId();
+            task.setColumnId(column.getId());
+            task.setDisplayOrder((int) taskRepository.countByColumnId(column.getId()));
+            taskRepository.save(task);
+            renumberColumn(previousColumnId);
+        } else {
+            taskRepository.save(task);
+        }
+        return TaskResponse.from(task);
     }
 
     private void applyRequest(Task task, TaskRequest request) {
@@ -87,7 +111,6 @@ public class TaskController {
         task.setDueDate(request.dueDate());
         task.setPriority(request.priority() != null ? request.priority() : Priority.MID);
         task.setCategories(request.categories());
-        task.setColumnId(request.columnId());
 
         task.clearChecklistItems();
         if (request.checklist() != null) {
@@ -99,20 +122,54 @@ public class TaskController {
     }
 
     @PatchMapping("/api/tasks/{id}/move")
+    @Transactional
     public TaskResponse move(@PathVariable String id, @Valid @RequestBody MoveRequest request) {
         Task task = findOrThrow(id);
-        task.setColumnId(request.columnId());
-        task.setDisplayOrder(request.displayOrder());
-        return TaskResponse.from(taskRepository.save(task));
+        BoardColumn column = requireColumnInBoard(request.columnId(), task.getBoardId());
+        String sourceColumnId = task.getColumnId();
+        String targetColumnId = column.getId();
+
+        List<Task> targetTasks = new ArrayList<>(taskRepository.findByColumnIdOrderByDisplayOrderAsc(targetColumnId));
+        targetTasks.removeIf(t -> t.getId().equals(id));
+        int index = Math.max(0, Math.min(request.displayOrder(), targetTasks.size()));
+        targetTasks.add(index, task);
+        task.setColumnId(targetColumnId);
+        for (int i = 0; i < targetTasks.size(); i++) {
+            targetTasks.get(i).setDisplayOrder(i);
+        }
+        taskRepository.saveAll(targetTasks);
+
+        if (!sourceColumnId.equals(targetColumnId)) {
+            renumberColumn(sourceColumnId);
+        }
+        return TaskResponse.from(task);
     }
 
     @DeleteMapping("/api/tasks/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     public void delete(@PathVariable String id) {
-        if (!taskRepository.existsById(id)) {
-            throw ApiException.notFound("タスクが見つかりません: " + id);
-        }
+        Task task = findOrThrow(id);
+        String columnId = task.getColumnId();
         taskRepository.deleteById(id);
+        renumberColumn(columnId);
+    }
+
+    private void renumberColumn(String columnId) {
+        List<Task> tasks = taskRepository.findByColumnIdOrderByDisplayOrderAsc(columnId);
+        for (int i = 0; i < tasks.size(); i++) {
+            tasks.get(i).setDisplayOrder(i);
+        }
+        taskRepository.saveAll(tasks);
+    }
+
+    private BoardColumn requireColumnInBoard(String columnId, String boardId) {
+        BoardColumn column = columnRepository.findById(columnId)
+                .orElseThrow(() -> ApiException.notFound("列が見つかりません: " + columnId));
+        if (!column.getBoardId().equals(boardId)) {
+            throw ApiException.badRequest("指定した列はこのボードに属していません");
+        }
+        return column;
     }
 
     private Task findOrThrow(String id) {
