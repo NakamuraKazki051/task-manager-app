@@ -8,7 +8,6 @@ const DEFAULT_COLUMNS = [
   { name: '完了', done: true },
 ];
 const PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
-const PRIORITY_ORDER = { high: 0, mid: 1, low: 2 };
 const TAG_COLORS = ['sky', 'lime', 'green', 'red', 'azure', 'purple', 'yellow', 'orange', 'pink', 'slate'];
 
 const API_BASE = 'http://localhost:8080';
@@ -22,10 +21,12 @@ function tagColorClass(name) {
 let boards = [];
 let currentBoardId = null;
 let tasks = [];
+let visibleTasks = [];
 let columns = [];
 let editingId = null;
 let currentChecklist = [];
 let currentSort = 'manual';
+let searchDebounceTimer = null;
 
 // --- APIクライアント ---
 
@@ -165,36 +166,33 @@ function getAllCategories() {
   return [...set].sort();
 }
 
-function render() {
+function buildTaskSearchParams() {
+  const params = new URLSearchParams();
+  const category = document.getElementById('filterCategory').value;
+  const priority = document.getElementById('filterPriority').value;
+  const q = document.getElementById('searchInput').value.trim();
+  if (category) params.set('category', category);
+  if (priority) params.set('priority', priority.toUpperCase());
+  if (q) params.set('q', q);
+  params.set('sort', currentSort);
+  return params;
+}
+
+async function render() {
   const filterCategory = document.getElementById('filterCategory').value;
-  const filterPriority = document.getElementById('filterPriority').value;
-  const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
-
   renderCategoryFilterOptions(filterCategory);
-  renderColumns(filterCategory, filterPriority, searchQuery);
-}
 
-function sortFiltered(filtered) {
-  if (currentSort === 'due') {
-    filtered.sort((a, b) => {
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      return (a.order ?? 0) - (b.order ?? 0);
-    });
-  } else if (currentSort === 'priority') {
-    filtered.sort((a, b) => {
-      const pd = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-      if (pd !== 0) return pd;
-      return (a.order ?? 0) - (b.order ?? 0);
-    });
-  } else {
-    filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const params = buildTaskSearchParams();
+  try {
+    const taskList = await apiGet(`/api/boards/${currentBoardId}/tasks?${params.toString()}`);
+    visibleTasks = taskList.map(fromApiTask);
+  } catch (err) {
+    return;
   }
-  return filtered;
+  renderColumns();
 }
 
-function renderColumns(filterCategory, filterPriority, searchQuery) {
+function renderColumns() {
   const board = document.getElementById('board');
   board.innerHTML = '';
 
@@ -238,26 +236,18 @@ function renderColumns(filterCategory, filterPriority, searchQuery) {
     section.appendChild(list);
     board.appendChild(section);
 
-    let filtered = tasks.filter(t => t.status === col.id);
-    if (filterCategory) filtered = filtered.filter(t => (t.categories || []).includes(filterCategory));
-    if (filterPriority) filtered = filtered.filter(t => t.priority === filterPriority);
-    if (searchQuery) {
-      filtered = filtered.filter(t =>
-        (t.title || '').toLowerCase().includes(searchQuery) ||
-        (t.description || '').toLowerCase().includes(searchQuery));
-    }
-    sortFiltered(filtered);
+    const colTasks = visibleTasks.filter(t => t.status === col.id);
 
-    count.textContent = filtered.length;
+    count.textContent = colTasks.length;
 
-    if (filtered.length === 0) {
+    if (colTasks.length === 0) {
       const hint = document.createElement('div');
       hint.className = 'empty-hint';
       hint.textContent = 'タスクはありません';
       list.appendChild(hint);
     }
 
-    filtered.forEach(task => list.appendChild(renderCard(task)));
+    colTasks.forEach(task => list.appendChild(renderCard(task)));
 
     nameSpan.addEventListener('click', () => startEditColumnName(col, nameSpan));
     doneBtn.addEventListener('click', () => toggleColumnDone(col));
@@ -955,7 +945,10 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
 });
 document.getElementById('filterCategory').addEventListener('change', render);
 document.getElementById('filterPriority').addEventListener('change', render);
-document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(render, 300);
+});
 document.getElementById('sortSelect').addEventListener('change', (e) => {
   currentSort = e.target.value;
   render();
