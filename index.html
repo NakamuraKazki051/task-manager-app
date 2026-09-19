@@ -19,6 +19,7 @@
         <button type="button" id="deleteBoardBtn" class="icon-btn" title="ボードを削除" aria-label="ボードを削除">×</button>
       </div>
     </div>
+    <div id="authStatus" class="auth-status"></div>
     <div class="header-actions">
       <input type="search" id="searchInput" class="search-input" placeholder="🔍 検索..." aria-label="タスクを検索">
       <select id="filterCategory">
@@ -97,6 +98,27 @@
           <div class="modal-actions-right">
             <button type="button" id="cancelBtn" class="btn-secondary">キャンセル</button>
             <button type="submit" class="btn-primary">保存</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="authModalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>ログイン</h2>
+      <form id="authForm">
+        <label>メールアドレス
+          <input type="email" id="authEmail" required maxlength="255" autocomplete="username">
+        </label>
+        <label>パスワード
+          <input type="password" id="authPassword" required maxlength="72" autocomplete="current-password">
+        </label>
+        <div id="authError" class="auth-error hidden"></div>
+        <div class="modal-actions">
+          <div class="modal-actions-right">
+            <button type="button" id="authCancelBtn" class="btn-secondary">キャンセル</button>
+            <button type="submit" class="btn-primary">ログイン</button>
           </div>
         </div>
       </form>

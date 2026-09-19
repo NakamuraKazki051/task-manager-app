@@ -162,6 +162,18 @@ body {
   align-items: center;
 }
 
+.auth-status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.auth-email {
+  color: var(--text-oncolor);
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
 .search-input {
   background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.35);
@@ -553,6 +565,33 @@ button {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+#authForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+#authForm label > input {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+#authForm label > input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.auth-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.auth-error.hidden { display: none; }
 
 .required { color: var(--danger); margin-left: 2px; }
 .hint { font-weight: normal; margin-left: 4px; }
