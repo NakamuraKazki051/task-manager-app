@@ -27,6 +27,7 @@ let editingId = null;
 let currentChecklist = [];
 let currentSort = 'manual';
 let searchDebounceTimer = null;
+let currentUser = null;
 
 // --- APIクライアント ---
 
@@ -35,6 +36,7 @@ async function apiFetch(path, options = {}) {
   try {
     res = await fetch(`${API_BASE}${path}`, {
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       ...options,
     });
   } catch (e) {
@@ -926,6 +928,94 @@ function checkDueNotifications(force) {
   }
 }
 
+// --- ログイン/ログアウト ---
+
+async function checkAuth() {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
+    currentUser = res.ok ? await res.json() : null;
+  } catch (e) {
+    currentUser = null;
+  }
+  renderAuthStatus();
+}
+
+function renderAuthStatus() {
+  const el = document.getElementById('authStatus');
+  el.innerHTML = '';
+  if (currentUser) {
+    const emailSpan = document.createElement('span');
+    emailSpan.className = 'auth-email';
+    emailSpan.textContent = currentUser.email;
+    const logoutBtn = document.createElement('button');
+    logoutBtn.type = 'button';
+    logoutBtn.className = 'btn-secondary';
+    logoutBtn.textContent = 'ログアウト';
+    logoutBtn.addEventListener('click', handleLogout);
+    el.appendChild(emailSpan);
+    el.appendChild(logoutBtn);
+  } else {
+    const loginBtn = document.createElement('button');
+    loginBtn.type = 'button';
+    loginBtn.className = 'btn-secondary';
+    loginBtn.textContent = 'ログイン';
+    loginBtn.addEventListener('click', openAuthModal);
+    el.appendChild(loginBtn);
+  }
+}
+
+function openAuthModal() {
+  document.getElementById('authForm').reset();
+  document.getElementById('authError').classList.add('hidden');
+  document.getElementById('authModalOverlay').classList.remove('hidden');
+  document.getElementById('authEmail').focus();
+}
+
+function closeAuthModal() {
+  document.getElementById('authModalOverlay').classList.add('hidden');
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errorEl = document.getElementById('authError');
+  errorEl.classList.add('hidden');
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    errorEl.textContent = 'バックエンドに接続できません。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    errorEl.textContent = (data && data.message) || 'ログインに失敗しました。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  currentUser = await res.json();
+  closeAuthModal();
+  renderAuthStatus();
+}
+
+async function handleLogout() {
+  try {
+    await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+  } catch (e) { /* ローカル状態のクリアは継続する */ }
+  currentUser = null;
+  renderAuthStatus();
+}
+
 document.getElementById('addTaskBtn').addEventListener('click', () => openModal(null));
 document.getElementById('exportBtn').addEventListener('click', exportData);
 document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
@@ -960,15 +1050,24 @@ document.getElementById('addBoardBtn').addEventListener('click', addBoard);
 document.getElementById('renameBoardBtn').addEventListener('click', renameBoard);
 document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard);
 document.getElementById('apiErrorDismiss').addEventListener('click', clearApiError);
+document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
+document.getElementById('authCancelBtn').addEventListener('click', closeAuthModal);
+document.getElementById('authModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'authModalOverlay') closeAuthModal();
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.getElementById('modalOverlay').classList.contains('hidden')) {
     closeModal();
+  }
+  if (e.key === 'Escape' && !document.getElementById('authModalOverlay').classList.contains('hidden')) {
+    closeAuthModal();
   }
 });
 
 async function init() {
   applyTheme(loadTheme());
   updateNotifyBtn();
+  checkAuth();
   try {
     boards = await apiGet('/api/boards');
     if (!boards.length) {
