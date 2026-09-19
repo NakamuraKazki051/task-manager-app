@@ -21,14 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private static final String SESSION_USER_ID = "userId";
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CurrentUser currentUser;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, CurrentUser currentUser) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.currentUser = currentUser;
     }
 
     @PostMapping("/login")
@@ -37,7 +37,7 @@ public class AuthController {
         User user = userRepository.findByEmail(email)
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
                 .orElseThrow(() -> ApiException.unauthorized("メールアドレスまたはパスワードが正しくありません"));
-        httpRequest.getSession(true).setAttribute(SESSION_USER_ID, user.getId());
+        httpRequest.getSession(true).setAttribute(CurrentUser.SESSION_KEY, user.getId());
         return UserResponse.from(user);
     }
 
@@ -52,11 +52,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public UserResponse me(HttpServletRequest httpRequest) {
-        HttpSession session = httpRequest.getSession(false);
-        String userId = session != null ? (String) session.getAttribute(SESSION_USER_ID) : null;
-        if (userId == null) {
-            throw ApiException.unauthorized("ログインしていません");
-        }
+        String userId = currentUser.require(httpRequest);
         return userRepository.findById(userId)
                 .map(UserResponse::from)
                 .orElseThrow(() -> ApiException.unauthorized("ログインしていません"));

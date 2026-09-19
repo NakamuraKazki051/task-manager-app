@@ -14,12 +14,15 @@ public class Board {
     @Id
     private String id;
 
+    private String userId;
+
     private String name;
 
     protected Board() {
     }
 
-    public Board(String name) {
+    public Board(String userId, String name) {
+        this.userId = userId;
         this.name = name;
     }
 
@@ -32,6 +35,10 @@ public class Board {
 
     public String getId() {
         return id;
+    }
+
+    public String getUserId() {
+        return userId;
     }
 
     public String getName() {

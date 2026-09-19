@@ -1,10 +1,12 @@
 package com.taskmanager.api.task;
 
+import com.taskmanager.api.auth.CurrentUser;
 import com.taskmanager.api.board.BoardRepository;
 import com.taskmanager.api.column.BoardColumn;
 import com.taskmanager.api.column.BoardColumnRepository;
 import com.taskmanager.api.common.ApiException;
 import com.taskmanager.api.task.TaskDtos.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,11 +22,14 @@ public class TaskController {
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
     private final BoardColumnRepository columnRepository;
+    private final CurrentUser currentUser;
 
-    public TaskController(TaskRepository taskRepository, BoardRepository boardRepository, BoardColumnRepository columnRepository) {
+    public TaskController(TaskRepository taskRepository, BoardRepository boardRepository,
+                           BoardColumnRepository columnRepository, CurrentUser currentUser) {
         this.taskRepository = taskRepository;
         this.boardRepository = boardRepository;
         this.columnRepository = columnRepository;
+        this.currentUser = currentUser;
     }
 
     @GetMapping("/api/boards/{boardId}/tasks")
@@ -33,8 +38,11 @@ public class TaskController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Priority priority,
             @RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "manual") String sort
+            @RequestParam(defaultValue = "manual") String sort,
+            HttpServletRequest httpRequest
     ) {
+        String userId = currentUser.require(httpRequest);
+        requireBoardOwnership(boardId, userId);
         List<Task> tasks = taskRepository.findByBoardId(boardId);
 
         if (category != null && !category.isBlank()) {
@@ -69,16 +77,18 @@ public class TaskController {
     }
 
     @GetMapping("/api/tasks/{id}")
-    public TaskResponse get(@PathVariable String id) {
-        return TaskResponse.from(findOrThrow(id));
+    public TaskResponse get(@PathVariable String id, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        Task task = findOrThrow(id);
+        requireBoardOwnership(task.getBoardId(), userId);
+        return TaskResponse.from(task);
     }
 
     @PostMapping("/api/boards/{boardId}/tasks")
     @ResponseStatus(HttpStatus.CREATED)
-    public TaskResponse create(@PathVariable String boardId, @Valid @RequestBody TaskRequest request) {
-        if (!boardRepository.existsById(boardId)) {
-            throw ApiException.notFound("ボードが見つかりません: " + boardId);
-        }
+    public TaskResponse create(@PathVariable String boardId, @Valid @RequestBody TaskRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        requireBoardOwnership(boardId, userId);
         BoardColumn column = requireColumnInBoard(request.columnId(), boardId);
         Task task = new Task(boardId, column.getId(), request.title().trim());
         applyRequest(task, request);
@@ -88,8 +98,10 @@ public class TaskController {
 
     @PutMapping("/api/tasks/{id}")
     @Transactional
-    public TaskResponse update(@PathVariable String id, @Valid @RequestBody TaskRequest request) {
+    public TaskResponse update(@PathVariable String id, @Valid @RequestBody TaskRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
         Task task = findOrThrow(id);
+        requireBoardOwnership(task.getBoardId(), userId);
         BoardColumn column = requireColumnInBoard(request.columnId(), task.getBoardId());
         task.setTitle(request.title().trim());
         applyRequest(task, request);
@@ -123,8 +135,10 @@ public class TaskController {
 
     @PatchMapping("/api/tasks/{id}/move")
     @Transactional
-    public TaskResponse move(@PathVariable String id, @Valid @RequestBody MoveRequest request) {
+    public TaskResponse move(@PathVariable String id, @Valid @RequestBody MoveRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
         Task task = findOrThrow(id);
+        requireBoardOwnership(task.getBoardId(), userId);
         BoardColumn column = requireColumnInBoard(request.columnId(), task.getBoardId());
         String sourceColumnId = task.getColumnId();
         String targetColumnId = column.getId();
@@ -148,8 +162,10 @@ public class TaskController {
     @DeleteMapping("/api/tasks/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
-    public void delete(@PathVariable String id) {
+    public void delete(@PathVariable String id, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
         Task task = findOrThrow(id);
+        requireBoardOwnership(task.getBoardId(), userId);
         String columnId = task.getColumnId();
         taskRepository.deleteById(id);
         renumberColumn(columnId);
@@ -161,6 +177,12 @@ public class TaskController {
             tasks.get(i).setDisplayOrder(i);
         }
         taskRepository.saveAll(tasks);
+    }
+
+    private void requireBoardOwnership(String boardId, String userId) {
+        if (!boardRepository.existsByIdAndUserId(boardId, userId)) {
+            throw ApiException.notFound("ボードが見つかりません: " + boardId);
+        }
     }
 
     private BoardColumn requireColumnInBoard(String columnId, String boardId) {

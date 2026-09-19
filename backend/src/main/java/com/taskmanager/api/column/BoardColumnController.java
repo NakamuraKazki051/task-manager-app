@@ -1,5 +1,6 @@
 package com.taskmanager.api.column;
 
+import com.taskmanager.api.auth.CurrentUser;
 import com.taskmanager.api.board.BoardRepository;
 import com.taskmanager.api.column.ColumnDtos.ColumnMoveRequest;
 import com.taskmanager.api.column.ColumnDtos.ColumnRequest;
@@ -7,6 +8,7 @@ import com.taskmanager.api.column.ColumnDtos.ColumnResponse;
 import com.taskmanager.api.column.ColumnDtos.ColumnUpdateRequest;
 import com.taskmanager.api.common.ApiException;
 import com.taskmanager.api.task.TaskRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,33 +23,39 @@ public class BoardColumnController {
     private final BoardColumnRepository columnRepository;
     private final TaskRepository taskRepository;
     private final BoardRepository boardRepository;
+    private final CurrentUser currentUser;
 
-    public BoardColumnController(BoardColumnRepository columnRepository, TaskRepository taskRepository, BoardRepository boardRepository) {
+    public BoardColumnController(BoardColumnRepository columnRepository, TaskRepository taskRepository,
+                                  BoardRepository boardRepository, CurrentUser currentUser) {
         this.columnRepository = columnRepository;
         this.taskRepository = taskRepository;
         this.boardRepository = boardRepository;
+        this.currentUser = currentUser;
     }
 
     @GetMapping("/api/boards/{boardId}/columns")
-    public List<ColumnResponse> list(@PathVariable String boardId) {
+    public List<ColumnResponse> list(@PathVariable String boardId, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        requireBoardOwnership(boardId, userId);
         return columnRepository.findByBoardIdOrderByDisplayOrderAsc(boardId).stream()
                 .map(ColumnResponse::from).toList();
     }
 
     @PostMapping("/api/boards/{boardId}/columns")
     @ResponseStatus(HttpStatus.CREATED)
-    public ColumnResponse create(@PathVariable String boardId, @Valid @RequestBody ColumnRequest request) {
-        if (!boardRepository.existsById(boardId)) {
-            throw ApiException.notFound("ボードが見つかりません: " + boardId);
-        }
+    public ColumnResponse create(@PathVariable String boardId, @Valid @RequestBody ColumnRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        requireBoardOwnership(boardId, userId);
         int nextOrder = (int) columnRepository.countByBoardId(boardId);
         BoardColumn column = new BoardColumn(boardId, request.name().trim(), request.done(), nextOrder);
         return ColumnResponse.from(columnRepository.save(column));
     }
 
     @PutMapping("/api/columns/{id}")
-    public ColumnResponse update(@PathVariable String id, @RequestBody ColumnUpdateRequest request) {
+    public ColumnResponse update(@PathVariable String id, @RequestBody ColumnUpdateRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
         BoardColumn column = findOrThrow(id);
+        requireBoardOwnership(column.getBoardId(), userId);
         if (request.name() != null && !request.name().isBlank()) {
             column.setName(request.name().trim());
         }
@@ -59,8 +67,10 @@ public class BoardColumnController {
 
     @PatchMapping("/api/columns/{id}/move")
     @Transactional
-    public ColumnResponse move(@PathVariable String id, @Valid @RequestBody ColumnMoveRequest request) {
+    public ColumnResponse move(@PathVariable String id, @Valid @RequestBody ColumnMoveRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
         BoardColumn column = findOrThrow(id);
+        requireBoardOwnership(column.getBoardId(), userId);
         List<BoardColumn> boardColumns = new ArrayList<>(columnRepository.findByBoardIdOrderByDisplayOrderAsc(column.getBoardId()));
         boardColumns.removeIf(c -> c.getId().equals(id));
         int index = Math.max(0, Math.min(request.displayOrder(), boardColumns.size()));
@@ -75,8 +85,10 @@ public class BoardColumnController {
     @DeleteMapping("/api/columns/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
-    public void delete(@PathVariable String id) {
+    public void delete(@PathVariable String id, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
         BoardColumn column = findOrThrow(id);
+        requireBoardOwnership(column.getBoardId(), userId);
         if (taskRepository.countByColumnId(id) > 0) {
             throw ApiException.badRequest("タスクが残っている列は削除できません");
         }
@@ -90,6 +102,12 @@ public class BoardColumnController {
             remaining.get(i).setDisplayOrder(i);
         }
         columnRepository.saveAll(remaining);
+    }
+
+    private void requireBoardOwnership(String boardId, String userId) {
+        if (!boardRepository.existsByIdAndUserId(boardId, userId)) {
+            throw ApiException.notFound("ボードが見つかりません: " + boardId);
+        }
     }
 
     private BoardColumn findOrThrow(String id) {

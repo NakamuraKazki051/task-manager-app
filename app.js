@@ -940,6 +940,44 @@ async function checkAuth() {
   renderAuthStatus();
 }
 
+function setLoggedInUiVisible(visible) {
+  document.getElementById('boardSwitcher').classList.toggle('hidden', !visible);
+  document.getElementById('headerActions').classList.toggle('hidden', !visible);
+}
+
+function showLoggedOutState() {
+  boards = [];
+  tasks = [];
+  visibleTasks = [];
+  columns = [];
+  currentBoardId = null;
+  setLoggedInUiVisible(false);
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'empty-hint';
+  hint.textContent = 'ログインするとボードが表示されます。';
+  board.appendChild(hint);
+}
+
+async function loadApp() {
+  setLoggedInUiVisible(true);
+  try {
+    boards = await apiGet('/api/boards');
+    if (!boards.length) {
+      const board = await apiPost('/api/boards', { name: 'マイボード' });
+      await createDefaultColumns(board.id);
+      boards = [board];
+    }
+    await loadBoardData(loadCurrentBoardId());
+  } catch (err) {
+    return;
+  }
+  renderBoardSelect();
+  render();
+  checkDueNotifications();
+}
+
 function renderAuthStatus() {
   const el = document.getElementById('authStatus');
   el.innerHTML = '';
@@ -1006,6 +1044,7 @@ async function handleAuthSubmit(e) {
   currentUser = await res.json();
   closeAuthModal();
   renderAuthStatus();
+  await loadApp();
 }
 
 async function handleLogout() {
@@ -1014,6 +1053,7 @@ async function handleLogout() {
   } catch (e) { /* ローカル状態のクリアは継続する */ }
   currentUser = null;
   renderAuthStatus();
+  showLoggedOutState();
 }
 
 document.getElementById('addTaskBtn').addEventListener('click', () => openModal(null));
@@ -1067,21 +1107,12 @@ document.addEventListener('keydown', (e) => {
 async function init() {
   applyTheme(loadTheme());
   updateNotifyBtn();
-  checkAuth();
-  try {
-    boards = await apiGet('/api/boards');
-    if (!boards.length) {
-      const board = await apiPost('/api/boards', { name: 'マイボード' });
-      await createDefaultColumns(board.id);
-      boards = [board];
-    }
-    await loadBoardData(loadCurrentBoardId());
-  } catch (err) {
-    return;
+  await checkAuth();
+  if (currentUser) {
+    await loadApp();
+  } else {
+    showLoggedOutState();
   }
-  renderBoardSelect();
-  render();
-  checkDueNotifications();
 }
 
 init();
