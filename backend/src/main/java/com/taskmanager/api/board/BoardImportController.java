@@ -1,5 +1,6 @@
 package com.taskmanager.api.board;
 
+import com.taskmanager.api.auth.CurrentUser;
 import com.taskmanager.api.board.BoardImportDtos.ImportChecklistItemRequest;
 import com.taskmanager.api.board.BoardImportDtos.ImportColumnRequest;
 import com.taskmanager.api.board.BoardImportDtos.ImportRequest;
@@ -11,6 +12,7 @@ import com.taskmanager.api.task.ChecklistItem;
 import com.taskmanager.api.task.Priority;
 import com.taskmanager.api.task.Task;
 import com.taskmanager.api.task.TaskRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,18 +31,22 @@ public class BoardImportController {
     private final BoardRepository boardRepository;
     private final BoardColumnRepository columnRepository;
     private final TaskRepository taskRepository;
+    private final CurrentUser currentUser;
 
-    public BoardImportController(BoardRepository boardRepository, BoardColumnRepository columnRepository, TaskRepository taskRepository) {
+    public BoardImportController(BoardRepository boardRepository, BoardColumnRepository columnRepository,
+                                  TaskRepository taskRepository, CurrentUser currentUser) {
         this.boardRepository = boardRepository;
         this.columnRepository = columnRepository;
         this.taskRepository = taskRepository;
+        this.currentUser = currentUser;
     }
 
     @PutMapping("/api/boards/{boardId}/import")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
-    public void importBoard(@PathVariable String boardId, @Valid @RequestBody ImportRequest request) {
-        if (!boardRepository.existsById(boardId)) {
+    public void importBoard(@PathVariable String boardId, @Valid @RequestBody ImportRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        if (!boardRepository.existsByIdAndUserId(boardId, userId)) {
             throw ApiException.notFound("ボードが見つかりません: " + boardId);
         }
 
