@@ -8,4 +8,6 @@ public interface BoardColumnRepository extends JpaRepository<BoardColumn, String
     List<BoardColumn> findByBoardIdOrderByDisplayOrderAsc(String boardId);
 
     long countByBoardId(String boardId);
+
+    void deleteByBoardId(String boardId);
 }

@@ -7,5 +7,9 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, String> {
     List<Task> findByBoardId(String boardId);
 
+    List<Task> findByColumnIdOrderByDisplayOrderAsc(String columnId);
+
     long countByColumnId(String columnId);
+
+    void deleteByBoardId(String boardId);
 }
