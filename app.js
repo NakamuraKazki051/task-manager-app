@@ -1,18 +1,17 @@
-const LEGACY_TASKS_KEY = 'task-manager-app:tasks';
-const LEGACY_COLUMNS_KEY = 'task-manager-app:columns';
-const BOARDS_KEY = 'task-manager-app:boards';
 const CURRENT_BOARD_KEY = 'task-manager-app:currentBoard';
 const THEME_KEY = 'task-manager-app:theme';
 const NOTIFY_KEY = 'task-manager-app:notify';
 const LAST_NOTIFIED_KEY = 'task-manager-app:lastNotifiedDate';
 const DEFAULT_COLUMNS = [
-  { id: 'todo', name: '未着手', done: false },
-  { id: 'doing', name: '進行中', done: false },
-  { id: 'done', name: '完了', done: true },
+  { name: '未着手', done: false },
+  { name: '進行中', done: false },
+  { name: '完了', done: true },
 ];
 const PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
 const PRIORITY_ORDER = { high: 0, mid: 1, low: 2 };
 const TAG_COLORS = ['sky', 'lime', 'green', 'red', 'azure', 'purple', 'yellow', 'orange', 'pink', 'slate'];
+
+const API_BASE = 'http://localhost:8080';
 
 function tagColorClass(name) {
   let hash = 0;
@@ -20,127 +19,120 @@ function tagColorClass(name) {
   return TAG_COLORS[hash % TAG_COLORS.length];
 }
 
-function taskKey(boardId) { return `task-manager-app:tasks:${boardId}`; }
-function columnKey(boardId) { return `task-manager-app:columns:${boardId}`; }
-
-let boards = loadBoards();
-let currentBoardId = loadCurrentBoardId();
-let tasks = loadTasks(currentBoardId);
-let columns = loadColumns(currentBoardId);
+let boards = [];
+let currentBoardId = null;
+let tasks = [];
+let columns = [];
 let editingId = null;
 let currentChecklist = [];
 let currentSort = 'manual';
 
-function loadBoards() {
+// --- APIクライアント ---
+
+async function apiFetch(path, options = {}) {
+  let res;
   try {
-    const raw = localStorage.getItem(BOARDS_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(parsed) && parsed.length) {
-      return parsed.map(b => ({ id: String(b.id), name: b && b.name ? String(b.name) : '無題のボード' }));
-    }
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
   } catch (e) {
-    console.error('Failed to load boards from localStorage', e);
+    const err = new Error('バックエンドに接続できません。Docker/サーバーが起動しているか確認してください。');
+    showApiError(err.message);
+    throw err;
   }
-  // 旧バージョン(単一ボードのみ)のデータを新形式(ボードごとの名前空間)へ移行する
-  const legacyTasks = localStorage.getItem(LEGACY_TASKS_KEY);
-  const legacyColumns = localStorage.getItem(LEGACY_COLUMNS_KEY);
-  if (localStorage.getItem(taskKey('default')) == null) {
-    localStorage.setItem(taskKey('default'), legacyTasks != null ? legacyTasks : '[]');
+
+  let data = null;
+  if (res.status !== 204) {
+    try { data = await res.json(); } catch (e) { data = null; }
   }
-  if (localStorage.getItem(columnKey('default')) == null) {
-    localStorage.setItem(columnKey('default'), legacyColumns != null ? legacyColumns : JSON.stringify(DEFAULT_COLUMNS));
+
+  if (!res.ok) {
+    const message = data && data.message ? data.message : `リクエストに失敗しました (${res.status})`;
+    showApiError(message);
+    throw new Error(message);
   }
-  const migrated = [{ id: 'default', name: 'マイボード' }];
-  try {
-    localStorage.setItem(BOARDS_KEY, JSON.stringify(migrated));
-  } catch (e) {
-    console.error('Failed to save migrated boards to localStorage', e);
+
+  clearApiError();
+  return data;
+}
+
+function apiGet(path) { return apiFetch(path); }
+function apiPost(path, body) { return apiFetch(path, { method: 'POST', body: JSON.stringify(body) }); }
+function apiPut(path, body) { return apiFetch(path, { method: 'PUT', body: JSON.stringify(body) }); }
+function apiPatch(path, body) { return apiFetch(path, { method: 'PATCH', body: JSON.stringify(body) }); }
+function apiDelete(path) { return apiFetch(path, { method: 'DELETE' }); }
+
+function showApiError(message) {
+  document.getElementById('apiErrorMessage').textContent = message;
+  document.getElementById('apiErrorBanner').classList.remove('hidden');
+}
+
+function clearApiError() {
+  document.getElementById('apiErrorBanner').classList.add('hidden');
+}
+
+function fromApiTask(t) {
+  return {
+    id: t.id,
+    status: t.columnId,
+    title: t.title,
+    description: t.description || '',
+    dueDate: t.dueDate || '',
+    priority: (t.priority || 'MID').toLowerCase(),
+    categories: t.categories || [],
+    checklist: (t.checklist || []).map(i => ({ id: i.id, text: i.text, done: i.done })),
+    createdAt: t.createdAt,
+    order: t.displayOrder,
+  };
+}
+
+function toApiTaskPayload(data, columnId) {
+  return {
+    title: data.title,
+    description: data.description,
+    columnId,
+    dueDate: data.dueDate || null,
+    priority: data.priority.toUpperCase(),
+    categories: data.categories,
+    checklist: data.checklist.map(i => ({ text: i.text, done: i.done })),
+  };
+}
+
+function fromApiColumn(c) {
+  return { id: c.id, name: c.name, done: c.done };
+}
+
+async function loadBoardData(boardId) {
+  const [cols, taskList] = await Promise.all([
+    apiGet(`/api/boards/${boardId}/columns`),
+    apiGet(`/api/boards/${boardId}/tasks`),
+  ]);
+  currentBoardId = boardId;
+  localStorage.setItem(CURRENT_BOARD_KEY, boardId);
+  columns = cols.map(fromApiColumn);
+  tasks = taskList.map(fromApiTask);
+}
+
+async function refreshTasks() {
+  const taskList = await apiGet(`/api/boards/${currentBoardId}/tasks`);
+  tasks = taskList.map(fromApiTask);
+}
+
+async function refreshColumns() {
+  const cols = await apiGet(`/api/boards/${currentBoardId}/columns`);
+  columns = cols.map(fromApiColumn);
+}
+
+async function createDefaultColumns(boardId) {
+  for (const c of DEFAULT_COLUMNS) {
+    await apiPost(`/api/boards/${boardId}/columns`, { name: c.name, done: c.done });
   }
-  return migrated;
 }
 
 function loadCurrentBoardId() {
   const id = localStorage.getItem(CURRENT_BOARD_KEY);
   return (id && boards.some(b => b.id === id)) ? id : boards[0].id;
-}
-
-function saveBoards() {
-  try {
-    localStorage.setItem(BOARDS_KEY, JSON.stringify(boards));
-  } catch (e) {
-    console.error('Failed to save boards to localStorage', e);
-  }
-}
-
-function loadTasks(boardId) {
-  try {
-    const raw = localStorage.getItem(taskKey(boardId));
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error('Failed to load tasks from localStorage', e);
-    return [];
-  }
-}
-
-function saveTasks() {
-  try {
-    localStorage.setItem(taskKey(currentBoardId), JSON.stringify(tasks));
-  } catch (e) {
-    console.error('Failed to save tasks to localStorage', e);
-    alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
-  }
-}
-
-function loadColumns(boardId) {
-  try {
-    const raw = localStorage.getItem(columnKey(boardId));
-    const parsed = raw ? JSON.parse(raw) : null;
-    const cols = Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_COLUMNS.map(c => ({ ...c }));
-    // 旧バージョンのデータには done フラグが無いため、元のデフォルト「完了」列のIDだけ true として補う
-    cols.forEach(c => { if (typeof c.done !== 'boolean') c.done = c.id === 'done'; });
-    return cols;
-  } catch (e) {
-    console.error('Failed to load columns from localStorage', e);
-    return DEFAULT_COLUMNS.map(c => ({ ...c }));
-  }
-}
-
-function saveColumns() {
-  try {
-    localStorage.setItem(columnKey(currentBoardId), JSON.stringify(columns));
-  } catch (e) {
-    console.error('Failed to save columns to localStorage', e);
-    alert('保存に失敗しました。ブラウザのストレージ容量を確認してください。');
-  }
-}
-
-function ensureTaskOrder() {
-  let changed = false;
-  columns.forEach(col => {
-    const inColumn = tasks.filter(t => t.status === col.id);
-    if (inColumn.every(t => typeof t.order === 'number')) return;
-    inColumn.sort((a, b) => {
-      const pd = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-      if (pd !== 0) return pd;
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      return 0;
-    });
-    inColumn.forEach((t, idx) => { t.order = idx; });
-    changed = true;
-  });
-  if (changed) saveTasks();
-}
-
-function nextOrder(status) {
-  const inColumn = tasks.filter(t => t.status === status);
-  if (!inColumn.length) return 0;
-  return Math.max(...inColumn.map(t => t.order ?? 0)) + 1;
-}
-
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 function parseCategories(str) {
@@ -215,7 +207,8 @@ function renderColumns(filterCategory, filterPriority, searchQuery) {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'column-name';
     nameSpan.textContent = col.name;
-    nameSpan.title = 'クリックして列名を編集';
+    nameSpan.title = 'クリックして列名を編集・ドラッグで並び替え';
+    nameSpan.draggable = true;
     const count = document.createElement('span');
     count.className = 'count';
     const doneBtn = document.createElement('button');
@@ -269,10 +262,51 @@ function renderColumns(filterCategory, filterPriority, searchQuery) {
     nameSpan.addEventListener('click', () => startEditColumnName(col, nameSpan));
     doneBtn.addEventListener('click', () => toggleColumnDone(col));
     delBtn.addEventListener('click', () => deleteColumn(col.id));
+    setupColumnDrag(section, nameSpan, col);
     setupDropZone(section, list, col.id);
   });
 
   board.appendChild(renderAddColumn());
+}
+
+function setupColumnDrag(section, handle, col) {
+  handle.addEventListener('dragstart', (e) => {
+    section.classList.add('column-dragging');
+    e.dataTransfer.setData('application/x-column-id', col.id);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  handle.addEventListener('dragend', () => {
+    section.classList.remove('column-dragging');
+  });
+  section.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('application/x-column-id')) return;
+    e.preventDefault();
+    section.classList.add('column-drag-over');
+  });
+  section.addEventListener('dragleave', (e) => {
+    if (!section.contains(e.relatedTarget)) section.classList.remove('column-drag-over');
+  });
+  section.addEventListener('drop', async (e) => {
+    if (!e.dataTransfer.types.includes('application/x-column-id')) return;
+    e.preventDefault();
+    section.classList.remove('column-drag-over');
+    const draggedId = e.dataTransfer.getData('application/x-column-id');
+    if (!draggedId || draggedId === col.id) return;
+    await moveColumn(draggedId, col.id);
+  });
+}
+
+async function moveColumn(draggedId, targetId) {
+  const targetIndex = columns.findIndex(c => c.id === targetId);
+  if (targetIndex === -1) return;
+  try {
+    await apiPatch(`/api/columns/${draggedId}/move`, { displayOrder: targetIndex });
+  } catch (e) {
+    render();
+    return;
+  }
+  await refreshColumns();
+  render();
 }
 
 function startEditColumnName(col, nameSpan) {
@@ -286,12 +320,16 @@ function startEditColumnName(col, nameSpan) {
   input.select();
 
   let committed = false;
-  const commit = () => {
+  const commit = async () => {
     if (committed) return;
     committed = true;
     const val = input.value.trim();
-    if (val) col.name = val;
-    saveColumns();
+    if (val && val !== col.name) {
+      try {
+        const updated = await apiPut(`/api/columns/${col.id}`, { name: val });
+        col.name = updated.name;
+      } catch (e) { /* エラーはバナー表示済み */ }
+    }
     render();
   };
   input.addEventListener('blur', commit);
@@ -301,19 +339,23 @@ function startEditColumnName(col, nameSpan) {
   });
 }
 
-function toggleColumnDone(col) {
-  col.done = !col.done;
-  saveColumns();
+async function toggleColumnDone(col) {
+  try {
+    const updated = await apiPut(`/api/columns/${col.id}`, { done: !col.done });
+    col.done = updated.done;
+  } catch (e) { /* エラーはバナー表示済み */ }
   render();
 }
 
-function deleteColumn(id) {
+async function deleteColumn(id) {
   if (columns.length <= 1) { alert('最後の列は削除できません。'); return; }
   const hasTasks = tasks.some(t => t.status === id);
   if (hasTasks) { alert('この列にはタスクがあります。先にタスクを他の列へ移動してください。'); return; }
   if (!confirm('この列を削除しますか?')) return;
+  try {
+    await apiDelete(`/api/columns/${id}`);
+  } catch (e) { return; }
   columns = columns.filter(c => c.id !== id);
-  saveColumns();
   render();
 }
 
@@ -365,12 +407,14 @@ function renderAddColumn() {
     input.value = '';
     doneCheckbox.checked = false;
   });
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = input.value.trim();
     if (!name) return;
-    columns.push({ id: uid(), name, done: doneCheckbox.checked });
-    saveColumns();
+    try {
+      const created = await apiPost(`/api/boards/${currentBoardId}/columns`, { name, done: doneCheckbox.checked });
+      columns.push(fromApiColumn(created));
+    } catch (err) { return; }
     render();
   });
 
@@ -437,6 +481,15 @@ function formatDate(isoDate) {
   return `${m}/${d}`;
 }
 
+function formatCreatedAt(isoInstant) {
+  const d = new Date(isoInstant);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}/${m}/${day}`;
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -445,6 +498,7 @@ function escapeHtml(str) {
 
 function setupDropZone(section, list, statusId) {
   section.addEventListener('dragover', (e) => {
+    if (e.dataTransfer.types.includes('application/x-column-id')) return;
     e.preventDefault();
     section.classList.add('drag-over');
     // 手動並び替え以外のソート表示中は、ドロップ時に末尾へ追加するだけなのでプレビュー移動は行わない
@@ -462,23 +516,32 @@ function setupDropZone(section, list, statusId) {
   section.addEventListener('dragleave', (e) => {
     if (!section.contains(e.relatedTarget)) section.classList.remove('drag-over');
   });
-  section.addEventListener('drop', (e) => {
+  section.addEventListener('drop', async (e) => {
+    if (e.dataTransfer.types.includes('application/x-column-id')) return;
     e.preventDefault();
     section.classList.remove('drag-over');
     const id = e.dataTransfer.getData('text/plain');
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-    const statusChanged = task.status !== statusId;
-    task.status = statusId;
+
+    let displayOrder;
     if (currentSort === 'manual') {
-      [...list.querySelectorAll('.task-card')].forEach((el, idx) => {
-        const t = tasks.find(t2 => t2.id === el.dataset.id);
-        if (t) t.order = idx;
-      });
-    } else if (statusChanged) {
-      task.order = nextOrder(statusId);
+      const cardEls = [...list.querySelectorAll('.task-card')];
+      displayOrder = cardEls.findIndex(el => el.dataset.id === id);
+      if (displayOrder === -1) displayOrder = cardEls.length;
+    } else {
+      displayOrder = tasks.filter(t => t.status === statusId && t.id !== id).length;
     }
-    saveTasks();
+
+    try {
+      await apiPatch(`/api/tasks/${id}/move`, { columnId: statusId, displayOrder });
+    } catch (err) {
+      render();
+      return;
+    }
+    try {
+      await refreshTasks();
+    } catch (err) { /* エラーはバナー表示済み。既存の表示のまま */ }
     render();
   });
 }
@@ -498,6 +561,14 @@ function getDragAfterElement(container, y) {
 function openModal(task) {
   editingId = task ? task.id : null;
   document.getElementById('modalTitle').textContent = task ? 'タスク編集' : 'タスク追加';
+  const createdEl = document.getElementById('taskCreatedAt');
+  if (task && task.createdAt) {
+    createdEl.textContent = `作成日: ${formatCreatedAt(task.createdAt)}`;
+    createdEl.classList.remove('hidden');
+  } else {
+    createdEl.textContent = '';
+    createdEl.classList.add('hidden');
+  }
   document.getElementById('taskId').value = task ? task.id : '';
   document.getElementById('taskTitle').value = task ? task.title : '';
   document.getElementById('taskDesc').value = task ? (task.description || '') : '';
@@ -574,7 +645,11 @@ function addChecklistItem() {
   input.focus();
 }
 
-function handleSubmit(e) {
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+async function handleSubmit(e) {
   e.preventDefault();
   const title = document.getElementById('taskTitle').value.trim();
   if (!title) return;
@@ -587,20 +662,21 @@ function handleSubmit(e) {
     categories: parseCategories(document.getElementById('taskCategory').value),
     checklist: currentChecklist,
   };
-  const selectedStatus = document.getElementById('taskStatus').value || (columns[0] ? columns[0].id : 'todo');
+  const selectedStatus = document.getElementById('taskStatus').value || (columns[0] ? columns[0].id : '');
 
-  if (editingId) {
-    const task = tasks.find(t => t.id === editingId);
-    if (task.status !== selectedStatus) {
-      data.status = selectedStatus;
-      data.order = nextOrder(selectedStatus);
+  try {
+    if (editingId) {
+      const updated = await apiPut(`/api/tasks/${editingId}`, toApiTaskPayload(data, selectedStatus));
+      const idx = tasks.findIndex(t => t.id === editingId);
+      if (idx !== -1) tasks[idx] = fromApiTask(updated);
+    } else {
+      const created = await apiPost(`/api/boards/${currentBoardId}/tasks`, toApiTaskPayload(data, selectedStatus));
+      tasks.push(fromApiTask(created));
     }
-    Object.assign(task, data);
-  } else {
-    tasks.push({ id: uid(), status: selectedStatus, order: nextOrder(selectedStatus), createdAt: new Date().toISOString(), ...data });
+  } catch (err) {
+    return;
   }
 
-  saveTasks();
   closeModal();
   render();
   checkDueNotifications();
@@ -633,7 +709,7 @@ function handleImportFile(e) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     let data;
     try {
       data = JSON.parse(reader.result);
@@ -647,29 +723,32 @@ function handleImportFile(e) {
     }
     if (!confirm('インポートすると現在のボードのタスクと列がすべて置き換わります。よろしいですか?')) return;
 
-    columns = data.columns.map(c => ({
-      id: c && c.id != null ? String(c.id) : uid(),
+    const importColumns = data.columns.map((c, idx) => ({
+      id: c && c.id != null ? String(c.id) : `col-${idx}`,
       name: c && c.name ? String(c.name) : '無題の列',
       done: !!(c && c.done),
     }));
-    tasks = data.tasks.map(t => ({
-      ...t,
-      id: t && t.id != null ? String(t.id) : uid(),
+    const validColumnIds = new Set(importColumns.map(c => c.id));
+    const importTasks = data.tasks.map(t => ({
+      columnId: validColumnIds.has(t && t.status) ? t.status : importColumns[0].id,
       title: t && t.title ? String(t.title) : '無題のタスク',
       description: t && t.description ? String(t.description) : '',
-      dueDate: t && typeof t.dueDate === 'string' ? t.dueDate : '',
-      status: columns.some(c => c.id === (t && t.status)) ? t.status : columns[0].id,
-      priority: PRIORITY_LABEL[t && t.priority] ? t.priority : 'mid',
+      dueDate: t && typeof t.dueDate === 'string' && t.dueDate ? t.dueDate : null,
+      priority: PRIORITY_LABEL[t && t.priority] ? String(t.priority).toUpperCase() : 'MID',
       categories: [...new Set((Array.isArray(t && t.categories) ? t.categories : [])
         .filter(c => typeof c === 'string' && c.trim())
         .map(c => c.trim()))],
       checklist: (Array.isArray(t && t.checklist) ? t.checklist : [])
         .filter(i => i && typeof i.text === 'string' && i.text.trim())
-        .map(i => ({ id: i.id != null ? String(i.id) : uid(), text: String(i.text), done: !!i.done })),
+        .map(i => ({ text: String(i.text), done: !!i.done })),
     }));
-    ensureTaskOrder();
-    saveColumns();
-    saveTasks();
+
+    try {
+      await apiPut(`/api/boards/${currentBoardId}/import`, { columns: importColumns, tasks: importTasks });
+      await loadBoardData(currentBoardId);
+    } catch (err) {
+      return;
+    }
     render();
     checkDueNotifications();
     alert('インポートが完了しました。');
@@ -678,11 +757,15 @@ function handleImportFile(e) {
   reader.readAsText(file);
 }
 
-function handleDelete() {
+async function handleDelete() {
   if (!editingId) return;
   if (!confirm('このタスクを削除しますか?')) return;
+  try {
+    await apiDelete(`/api/tasks/${editingId}`);
+  } catch (err) {
+    return;
+  }
   tasks = tasks.filter(t => t.id !== editingId);
-  saveTasks();
   closeModal();
   render();
 }
@@ -696,16 +779,17 @@ function renderBoardSelect() {
   document.getElementById('deleteBoardBtn').disabled = boards.length <= 1;
 }
 
-function switchBoard(id) {
+async function switchBoard(id) {
   if (!boards.some(b => b.id === id) || id === currentBoardId) {
     renderBoardSelect();
     return;
   }
-  currentBoardId = id;
-  localStorage.setItem(CURRENT_BOARD_KEY, currentBoardId);
-  tasks = loadTasks(currentBoardId);
-  columns = loadColumns(currentBoardId);
-  ensureTaskOrder();
+  try {
+    await loadBoardData(id);
+  } catch (err) {
+    renderBoardSelect();
+    return;
+  }
   currentSort = 'manual';
   document.getElementById('sortSelect').value = 'manual';
   document.getElementById('searchInput').value = '';
@@ -714,45 +798,50 @@ function switchBoard(id) {
   checkDueNotifications();
 }
 
-function addBoard() {
+async function addBoard() {
   const name = prompt('新しいボード名を入力してください', '新しいボード');
   if (name == null) return;
   const trimmed = name.trim();
   if (!trimmed) return;
-  const id = uid();
-  boards.push({ id, name: trimmed });
-  saveBoards();
+  let board;
   try {
-    localStorage.setItem(columnKey(id), JSON.stringify(DEFAULT_COLUMNS.map(c => ({ ...c }))));
-    localStorage.setItem(taskKey(id), JSON.stringify([]));
-  } catch (e) {
-    console.error('Failed to initialize new board storage', e);
+    board = await apiPost('/api/boards', { name: trimmed });
+    await createDefaultColumns(board.id);
+  } catch (err) {
+    return;
   }
-  switchBoard(id);
+  boards.push(board);
+  await switchBoard(board.id);
 }
 
-function renameBoard() {
+async function renameBoard() {
   const board = boards.find(b => b.id === currentBoardId);
   if (!board) return;
   const name = prompt('ボード名を変更', board.name);
   if (name == null) return;
   const trimmed = name.trim();
   if (!trimmed) return;
-  board.name = trimmed;
-  saveBoards();
+  try {
+    const updated = await apiPut(`/api/boards/${currentBoardId}`, { name: trimmed });
+    board.name = updated.name;
+  } catch (err) {
+    return;
+  }
   renderBoardSelect();
 }
 
-function deleteBoard() {
+async function deleteBoard() {
   if (boards.length <= 1) { alert('最後のボードは削除できません。'); return; }
   const board = boards.find(b => b.id === currentBoardId);
   if (!board) return;
   if (!confirm(`ボード「${board.name}」を削除しますか?このボードのタスクと列もすべて削除されます。`)) return;
-  localStorage.removeItem(taskKey(currentBoardId));
-  localStorage.removeItem(columnKey(currentBoardId));
+  try {
+    await apiDelete(`/api/boards/${currentBoardId}`);
+  } catch (err) {
+    return;
+  }
   boards = boards.filter(b => b.id !== currentBoardId);
-  saveBoards();
-  switchBoard(boards[0].id);
+  await switchBoard(boards[0].id);
 }
 
 // --- テーマ(ライト/ダーク)手動切り替え ---
@@ -877,15 +966,30 @@ document.getElementById('boardSelect').addEventListener('change', (e) => switchB
 document.getElementById('addBoardBtn').addEventListener('click', addBoard);
 document.getElementById('renameBoardBtn').addEventListener('click', renameBoard);
 document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard);
+document.getElementById('apiErrorDismiss').addEventListener('click', clearApiError);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.getElementById('modalOverlay').classList.contains('hidden')) {
     closeModal();
   }
 });
 
-applyTheme(loadTheme());
-updateNotifyBtn();
-renderBoardSelect();
-ensureTaskOrder();
-render();
-checkDueNotifications();
+async function init() {
+  applyTheme(loadTheme());
+  updateNotifyBtn();
+  try {
+    boards = await apiGet('/api/boards');
+    if (!boards.length) {
+      const board = await apiPost('/api/boards', { name: 'マイボード' });
+      await createDefaultColumns(board.id);
+      boards = [board];
+    }
+    await loadBoardData(loadCurrentBoardId());
+  } catch (err) {
+    return;
+  }
+  renderBoardSelect();
+  render();
+  checkDueNotifications();
+}
+
+init();
