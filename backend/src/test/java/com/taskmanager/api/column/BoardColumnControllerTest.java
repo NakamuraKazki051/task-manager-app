@@ -112,6 +112,42 @@ class BoardColumnControllerTest {
     }
 
     @Test
+    void cannotUpdateMoveOrDeleteAnotherUsersColumn() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "未着手", false);
+        MockHttpSession otherSession = TestAuth.registerAndLogin(mockMvc, objectMapper);
+
+        mockMvc.perform(put("/api/columns/{id}", columnId).session(otherSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "乗っ取り"))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(patch("/api/columns/{id}/move", columnId).session(otherSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("displayOrder", 0))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/columns/{id}", columnId).session(otherSession))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void columnEndpointsRequireLogin() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "未着手", false);
+
+        mockMvc.perform(put("/api/columns/{id}", columnId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "変更"))))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(patch("/api/columns/{id}/move", columnId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("displayOrder", 0))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void movesColumnOrder() throws Exception {
         String boardId = createBoard();
         String first = createColumn(boardId, "1番目", false);

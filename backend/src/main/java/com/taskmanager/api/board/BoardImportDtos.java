@@ -25,7 +25,8 @@ public class BoardImportDtos {
             LocalDate dueDate,
             Priority priority,
             List<String> categories,
-            List<ImportChecklistItemRequest> checklist
+            List<ImportChecklistItemRequest> checklist,
+            Boolean completed
     ) {
     }
 

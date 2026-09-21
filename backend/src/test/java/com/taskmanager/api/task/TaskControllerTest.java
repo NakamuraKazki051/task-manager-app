@@ -154,6 +154,78 @@ class TaskControllerTest {
     }
 
     @Test
+    void togglesCompleteFlagIndependentlyOfColumn() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "列");
+        String taskId = createTask(boardId, columnId, Map.of("title", "タスク"));
+
+        mockMvc.perform(get("/api/tasks/{id}", taskId).session(session))
+                .andExpect(jsonPath("$.completed").value(false));
+
+        mockMvc.perform(patch("/api/tasks/{id}/complete", taskId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("completed", true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completed").value(true))
+                .andExpect(jsonPath("$.columnId").value(columnId));
+
+        mockMvc.perform(get("/api/tasks/{id}", taskId).session(session))
+                .andExpect(jsonPath("$.completed").value(true));
+
+        mockMvc.perform(patch("/api/tasks/{id}/complete", taskId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("completed", false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completed").value(false));
+    }
+
+    @Test
+    void cannotUpdateMoveOrCompleteAnotherUsersTask() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "列");
+        String otherColumnId = createColumn(boardId, "列2");
+        String taskId = createTask(boardId, columnId, Map.of("title", "タスク"));
+        MockHttpSession otherSession = TestAuth.registerAndLogin(mockMvc, objectMapper);
+
+        mockMvc.perform(put("/api/tasks/{id}", taskId).session(otherSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("title", "乗っ取り", "columnId", columnId))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(patch("/api/tasks/{id}/move", taskId).session(otherSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("columnId", otherColumnId, "displayOrder", 0))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(patch("/api/tasks/{id}/complete", taskId).session(otherSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("completed", true))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void taskEndpointsRequireLogin() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "列");
+        String taskId = createTask(boardId, columnId, Map.of("title", "タスク"));
+
+        mockMvc.perform(put("/api/tasks/{id}", taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("title", "タスク", "columnId", columnId))))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(patch("/api/tasks/{id}/move", taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("columnId", columnId, "displayOrder", 0))))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(patch("/api/tasks/{id}/complete", taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("completed", true))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void updatesAndDeletesTask() throws Exception {
         String boardId = createBoard();
         String columnId = createColumn(boardId, "列");

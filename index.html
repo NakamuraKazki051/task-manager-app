@@ -61,6 +61,10 @@
         <label>タイトル<span class="required">*</span>
           <input type="text" id="taskTitle" required maxlength="100">
         </label>
+        <label class="task-complete-toggle">
+          <input type="checkbox" id="taskCompleted">
+          このタスクを完了にする
+        </label>
         <label>詳細
           <textarea id="taskDesc" rows="3" maxlength="500"></textarea>
         </label>
@@ -119,6 +123,51 @@
           <div class="modal-actions-right">
             <button type="button" id="authCancelBtn" class="btn-secondary">キャンセル</button>
             <button type="submit" class="btn-primary">ログイン</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="registerModalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>新規登録</h2>
+      <form id="registerForm">
+        <label>メールアドレス
+          <input type="email" id="registerEmail" required maxlength="255" autocomplete="username">
+        </label>
+        <label>パスワード<span class="hint">(8文字以上)</span>
+          <input type="password" id="registerPassword" required minlength="8" maxlength="72" autocomplete="new-password">
+        </label>
+        <div id="registerError" class="auth-error hidden"></div>
+        <div class="modal-actions">
+          <div class="modal-actions-right">
+            <button type="button" id="registerCancelBtn" class="btn-secondary">キャンセル</button>
+            <button type="submit" class="btn-primary">登録</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="accountModalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>アカウント設定</h2>
+      <form id="accountForm">
+        <label>メールアドレス
+          <input type="email" id="accountEmail" required maxlength="255" autocomplete="username">
+        </label>
+        <label>新しいパスワード<span class="hint">(変更する場合のみ)</span>
+          <input type="password" id="accountNewPassword" maxlength="72" autocomplete="new-password">
+        </label>
+        <label>現在のパスワード<span class="required">*</span>
+          <input type="password" id="accountCurrentPassword" required maxlength="72" autocomplete="current-password">
+        </label>
+        <div id="accountError" class="auth-error hidden"></div>
+        <div class="modal-actions">
+          <div class="modal-actions-right">
+            <button type="button" id="accountCancelBtn" class="btn-secondary">キャンセル</button>
+            <button type="submit" class="btn-primary">保存</button>
           </div>
         </div>
       </form>

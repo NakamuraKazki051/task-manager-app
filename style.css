@@ -334,10 +334,28 @@ button {
 }
 .column-done-toggle.active:hover { background: var(--check-bg); color: white; }
 
+.column-move {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+.column:hover .column-move,
+.column:focus-within .column-move { opacity: 1; }
+.column-move:hover:not(:disabled) { background: var(--border); color: var(--accent); }
+.column-move:disabled { cursor: not-allowed; opacity: 0.35; }
+
 /* ホバーが効かないタッチ端末では、常時ボタンを表示して操作できるようにする */
 @media (hover: none) {
   .column-delete,
-  .column-done-toggle { opacity: 1; }
+  .column-done-toggle,
+  .column-move { opacity: 1; }
 }
 
 .add-column-done {
@@ -424,12 +442,38 @@ button {
 .task-card:active { cursor: grabbing; }
 .task-card.dragging { opacity: 0.4; }
 
+.task-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.task-complete-check {
+  flex: none;
+  margin: 3px 0 0;
+  cursor: pointer;
+}
+
 .task-card-title {
   font-weight: 700;
-  margin-bottom: 6px;
   word-break: break-word;
   color: var(--text);
 }
+
+.task-card.completed .task-card-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.task-card.completed { opacity: 0.7; }
+
+#taskForm label.task-complete-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.task-complete-toggle input { margin: 0; }
 
 .task-card-desc {
   font-size: 0.8rem;
@@ -566,7 +610,9 @@ button {
   outline-offset: 1px;
 }
 
-#authForm label {
+#authForm label,
+#accountForm label,
+#registerForm label {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -575,12 +621,16 @@ button {
   margin-bottom: 12px;
 }
 
-#authForm label > input {
+#authForm label > input,
+#accountForm label > input,
+#registerForm label > input {
   color: var(--text);
   font-size: 0.95rem;
 }
 
-#authForm label > input:focus {
+#authForm label > input:focus,
+#accountForm label > input:focus,
+#registerForm label > input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

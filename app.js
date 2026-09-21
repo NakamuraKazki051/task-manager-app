@@ -87,6 +87,7 @@ function fromApiTask(t) {
     checklist: (t.checklist || []).map(i => ({ id: i.id, text: i.text, done: i.done })),
     createdAt: t.createdAt,
     order: t.displayOrder,
+    completed: !!t.completed,
   };
 }
 
@@ -99,6 +100,7 @@ function toApiTaskPayload(data, columnId) {
     priority: data.priority.toUpperCase(),
     categories: data.categories,
     checklist: data.checklist.map(i => ({ text: i.text, done: i.done })),
+    completed: !!data.completed,
   };
 }
 
@@ -198,7 +200,7 @@ function renderColumns() {
   const board = document.getElementById('board');
   board.innerHTML = '';
 
-  columns.forEach(col => {
+  columns.forEach((col, index) => {
     const section = document.createElement('section');
     section.className = 'column';
     section.dataset.status = col.id;
@@ -211,6 +213,20 @@ function renderColumns() {
     nameSpan.draggable = true;
     const count = document.createElement('span');
     count.className = 'count';
+    const moveLeftBtn = document.createElement('button');
+    moveLeftBtn.type = 'button';
+    moveLeftBtn.className = 'column-move';
+    moveLeftBtn.textContent = '◀';
+    moveLeftBtn.setAttribute('aria-label', '列を左に移動');
+    moveLeftBtn.title = '列を左に移動';
+    moveLeftBtn.disabled = index === 0;
+    const moveRightBtn = document.createElement('button');
+    moveRightBtn.type = 'button';
+    moveRightBtn.className = 'column-move';
+    moveRightBtn.textContent = '▶';
+    moveRightBtn.setAttribute('aria-label', '列を右に移動');
+    moveRightBtn.title = '列を右に移動';
+    moveRightBtn.disabled = index === columns.length - 1;
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
     doneBtn.className = 'column-done-toggle';
@@ -228,6 +244,8 @@ function renderColumns() {
 
     h2.appendChild(nameSpan);
     h2.appendChild(count);
+    h2.appendChild(moveLeftBtn);
+    h2.appendChild(moveRightBtn);
     h2.appendChild(doneBtn);
     h2.appendChild(delBtn);
 
@@ -252,6 +270,8 @@ function renderColumns() {
     colTasks.forEach(task => list.appendChild(renderCard(task)));
 
     nameSpan.addEventListener('click', () => startEditColumnName(col, nameSpan));
+    moveLeftBtn.addEventListener('click', () => moveColumnByOffset(col, -1));
+    moveRightBtn.addEventListener('click', () => moveColumnByOffset(col, 1));
     doneBtn.addEventListener('click', () => toggleColumnDone(col));
     delBtn.addEventListener('click', () => deleteColumn(col.id));
     setupColumnDrag(section, nameSpan, col);
@@ -293,6 +313,20 @@ async function moveColumn(draggedId, targetId) {
   if (targetIndex === -1) return;
   try {
     await apiPatch(`/api/columns/${draggedId}/move`, { displayOrder: targetIndex });
+  } catch (e) {
+    render();
+    return;
+  }
+  await refreshColumns();
+  render();
+}
+
+async function moveColumnByOffset(col, offset) {
+  const index = columns.findIndex(c => c.id === col.id);
+  const newIndex = index + offset;
+  if (index === -1 || newIndex < 0 || newIndex >= columns.length) return;
+  try {
+    await apiPatch(`/api/columns/${col.id}/move`, { displayOrder: newIndex });
   } catch (e) {
     render();
     return;
@@ -426,6 +460,7 @@ function renderCategoryFilterOptions(selectedValue) {
 function renderCard(task) {
   const card = document.createElement('div');
   card.className = 'task-card';
+  card.classList.toggle('completed', !!task.completed);
   card.draggable = true;
   card.dataset.id = task.id;
 
@@ -436,7 +471,10 @@ function renderCard(task) {
   const checklistDone = checklist.filter(i => i.done).length;
 
   card.innerHTML = `
-    <div class="task-card-title"></div>
+    <div class="task-card-head">
+      <input type="checkbox" class="task-complete-check" aria-label="タスクを完了にする">
+      <div class="task-card-title"></div>
+    </div>
     ${task.description ? '<div class="task-card-desc"></div>' : ''}
     <div class="task-meta">
       <span class="badge ${task.priority}">${PRIORITY_LABEL[task.priority]}</span>
@@ -453,6 +491,11 @@ function renderCard(task) {
   const tagEls = card.querySelectorAll('.tag');
   (task.categories || []).forEach((c, i) => { tagEls[i].textContent = c; });
 
+  const completeCheck = card.querySelector('.task-complete-check');
+  completeCheck.checked = !!task.completed;
+  completeCheck.addEventListener('click', (e) => e.stopPropagation());
+  completeCheck.addEventListener('change', () => toggleTaskComplete(task, completeCheck));
+
   card.addEventListener('click', () => openModal(task));
   card.addEventListener('dragstart', (e) => {
     card.classList.add('dragging');
@@ -466,6 +509,19 @@ function renderCard(task) {
   });
 
   return card;
+}
+
+async function toggleTaskComplete(task, checkbox) {
+  const completed = checkbox.checked;
+  try {
+    await apiPatch(`/api/tasks/${task.id}/complete`, { completed });
+  } catch (e) {
+    checkbox.checked = !completed;
+    return;
+  }
+  const idx = tasks.findIndex(t => t.id === task.id);
+  if (idx !== -1) tasks[idx].completed = completed;
+  render();
 }
 
 function formatDate(isoDate) {
@@ -570,6 +626,7 @@ function openModal(task) {
   statusSelect.innerHTML = columns.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
   statusSelect.value = task ? task.status : columns[0].id;
   document.getElementById('taskCategory').value = task ? (task.categories || []).join(', ') : '';
+  document.getElementById('taskCompleted').checked = task ? !!task.completed : false;
   document.getElementById('deleteTaskBtn').classList.toggle('hidden', !task);
   currentChecklist = task ? (task.checklist || []).map(i => ({ ...i })) : [];
   document.getElementById('checklistNewItem').value = '';
@@ -653,6 +710,7 @@ async function handleSubmit(e) {
     priority: document.getElementById('taskPriority').value,
     categories: parseCategories(document.getElementById('taskCategory').value),
     checklist: currentChecklist,
+    completed: document.getElementById('taskCompleted').checked,
   };
   const selectedStatus = document.getElementById('taskStatus').value || (columns[0] ? columns[0].id : '');
 
@@ -733,6 +791,7 @@ function handleImportFile(e) {
       checklist: (Array.isArray(t && t.checklist) ? t.checklist : [])
         .filter(i => i && typeof i.text === 'string' && i.text.trim())
         .map(i => ({ text: String(i.text), done: !!i.done })),
+      completed: !!(t && t.completed),
     }));
 
     try {
@@ -985,12 +1044,18 @@ function renderAuthStatus() {
     const emailSpan = document.createElement('span');
     emailSpan.className = 'auth-email';
     emailSpan.textContent = currentUser.email;
+    const accountBtn = document.createElement('button');
+    accountBtn.type = 'button';
+    accountBtn.className = 'btn-secondary';
+    accountBtn.textContent = 'アカウント設定';
+    accountBtn.addEventListener('click', openAccountModal);
     const logoutBtn = document.createElement('button');
     logoutBtn.type = 'button';
     logoutBtn.className = 'btn-secondary';
     logoutBtn.textContent = 'ログアウト';
     logoutBtn.addEventListener('click', handleLogout);
     el.appendChild(emailSpan);
+    el.appendChild(accountBtn);
     el.appendChild(logoutBtn);
   } else {
     const loginBtn = document.createElement('button');
@@ -998,7 +1063,13 @@ function renderAuthStatus() {
     loginBtn.className = 'btn-secondary';
     loginBtn.textContent = 'ログイン';
     loginBtn.addEventListener('click', openAuthModal);
+    const registerBtn = document.createElement('button');
+    registerBtn.type = 'button';
+    registerBtn.className = 'btn-secondary';
+    registerBtn.textContent = '新規登録';
+    registerBtn.addEventListener('click', openRegisterModal);
     el.appendChild(loginBtn);
+    el.appendChild(registerBtn);
   }
 }
 
@@ -1045,6 +1116,119 @@ async function handleAuthSubmit(e) {
   closeAuthModal();
   renderAuthStatus();
   await loadApp();
+}
+
+function openRegisterModal() {
+  document.getElementById('registerForm').reset();
+  document.getElementById('registerError').classList.add('hidden');
+  document.getElementById('registerModalOverlay').classList.remove('hidden');
+  document.getElementById('registerEmail').focus();
+}
+
+function closeRegisterModal() {
+  document.getElementById('registerModalOverlay').classList.add('hidden');
+}
+
+async function handleRegisterSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('registerEmail').value.trim();
+  const password = document.getElementById('registerPassword').value;
+  const errorEl = document.getElementById('registerError');
+  errorEl.classList.add('hidden');
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/users/register`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    errorEl.textContent = 'バックエンドに接続できません。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    errorEl.textContent = (data && data.message) || '登録に失敗しました。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  let loginRes;
+  try {
+    loginRes = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    closeRegisterModal();
+    openAuthModal();
+    return;
+  }
+  if (!loginRes.ok) {
+    closeRegisterModal();
+    openAuthModal();
+    return;
+  }
+
+  currentUser = await loginRes.json();
+  closeRegisterModal();
+  renderAuthStatus();
+  await loadApp();
+}
+
+function openAccountModal() {
+  document.getElementById('accountForm').reset();
+  document.getElementById('accountEmail').value = currentUser ? currentUser.email : '';
+  document.getElementById('accountError').classList.add('hidden');
+  document.getElementById('accountModalOverlay').classList.remove('hidden');
+  document.getElementById('accountEmail').focus();
+}
+
+function closeAccountModal() {
+  document.getElementById('accountModalOverlay').classList.add('hidden');
+}
+
+async function handleAccountSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('accountEmail').value.trim();
+  const currentPassword = document.getElementById('accountCurrentPassword').value;
+  const newPassword = document.getElementById('accountNewPassword').value;
+  const errorEl = document.getElementById('accountError');
+  errorEl.classList.add('hidden');
+
+  const payload = { email, currentPassword };
+  if (newPassword) payload.newPassword = newPassword;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/users/me`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    errorEl.textContent = 'バックエンドに接続できません。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    errorEl.textContent = (data && data.message) || 'アカウントの更新に失敗しました。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  currentUser = await res.json();
+  closeAccountModal();
+  renderAuthStatus();
 }
 
 async function handleLogout() {
@@ -1095,12 +1279,28 @@ document.getElementById('authCancelBtn').addEventListener('click', closeAuthModa
 document.getElementById('authModalOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'authModalOverlay') closeAuthModal();
 });
+document.getElementById('registerForm').addEventListener('submit', handleRegisterSubmit);
+document.getElementById('registerCancelBtn').addEventListener('click', closeRegisterModal);
+document.getElementById('registerModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'registerModalOverlay') closeRegisterModal();
+});
+document.getElementById('accountForm').addEventListener('submit', handleAccountSubmit);
+document.getElementById('accountCancelBtn').addEventListener('click', closeAccountModal);
+document.getElementById('accountModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'accountModalOverlay') closeAccountModal();
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.getElementById('modalOverlay').classList.contains('hidden')) {
     closeModal();
   }
   if (e.key === 'Escape' && !document.getElementById('authModalOverlay').classList.contains('hidden')) {
     closeAuthModal();
+  }
+  if (e.key === 'Escape' && !document.getElementById('accountModalOverlay').classList.contains('hidden')) {
+    closeAccountModal();
+  }
+  if (e.key === 'Escape' && !document.getElementById('registerModalOverlay').classList.contains('hidden')) {
+    closeRegisterModal();
   }
 });
 

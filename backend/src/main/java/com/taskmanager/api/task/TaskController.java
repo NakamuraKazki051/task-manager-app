@@ -123,6 +123,7 @@ public class TaskController {
         task.setDueDate(request.dueDate());
         task.setPriority(request.priority() != null ? request.priority() : Priority.MID);
         task.setCategories(request.categories());
+        task.setCompleted(Boolean.TRUE.equals(request.completed()));
 
         task.clearChecklistItems();
         if (request.checklist() != null) {
@@ -157,6 +158,16 @@ public class TaskController {
             renumberColumn(sourceColumnId);
         }
         return TaskResponse.from(task);
+    }
+
+    @PatchMapping("/api/tasks/{id}/complete")
+    @Transactional
+    public TaskResponse complete(@PathVariable String id, @Valid @RequestBody CompleteRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        Task task = findOrThrow(id);
+        requireBoardOwnership(task.getBoardId(), userId);
+        task.setCompleted(request.completed());
+        return TaskResponse.from(taskRepository.save(task));
     }
 
     @DeleteMapping("/api/tasks/{id}")
