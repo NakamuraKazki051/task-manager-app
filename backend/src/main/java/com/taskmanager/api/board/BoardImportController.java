@@ -76,6 +76,7 @@ public class BoardImportController {
             task.setDueDate(taskRequest.dueDate());
             task.setPriority(taskRequest.priority() != null ? taskRequest.priority() : Priority.MID);
             task.setCategories(taskRequest.categories());
+            task.setCompleted(Boolean.TRUE.equals(taskRequest.completed()));
             if (taskRequest.checklist() != null) {
                 int checklistOrder = 0;
                 for (ImportChecklistItemRequest item : taskRequest.checklist()) {

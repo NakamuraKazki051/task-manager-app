@@ -30,6 +30,7 @@ public class Task {
 
     private Instant createdAt;
     private int displayOrder;
+    private boolean completed = false;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "task_categories", joinColumns = @JoinColumn(name = "task_id"))
@@ -86,6 +87,8 @@ public class Task {
     public Instant getCreatedAt() { return createdAt; }
     public int getDisplayOrder() { return displayOrder; }
     public void setDisplayOrder(int displayOrder) { this.displayOrder = displayOrder; }
+    public boolean isCompleted() { return completed; }
+    public void setCompleted(boolean completed) { this.completed = completed; }
     public List<String> getCategories() { return categories; }
     public void setCategories(List<String> categories) {
         this.categories.clear();

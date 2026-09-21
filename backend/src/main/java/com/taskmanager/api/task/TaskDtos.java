@@ -27,11 +27,15 @@ public class TaskDtos {
             LocalDate dueDate,
             Priority priority,
             List<String> categories,
-            List<ChecklistItemRequest> checklist
+            List<ChecklistItemRequest> checklist,
+            Boolean completed
     ) {
     }
 
     public record MoveRequest(@NotBlank String columnId, int displayOrder) {
+    }
+
+    public record CompleteRequest(boolean completed) {
     }
 
     public record TaskResponse(
@@ -45,7 +49,8 @@ public class TaskDtos {
             Instant createdAt,
             int displayOrder,
             List<String> categories,
-            List<ChecklistItemResponse> checklist
+            List<ChecklistItemResponse> checklist,
+            boolean completed
     ) {
         public static TaskResponse from(Task task) {
             return new TaskResponse(
@@ -59,7 +64,8 @@ public class TaskDtos {
                     task.getCreatedAt(),
                     task.getDisplayOrder(),
                     task.getCategories(),
-                    task.getChecklistItems().stream().map(ChecklistItemResponse::from).toList()
+                    task.getChecklistItems().stream().map(ChecklistItemResponse::from).toList(),
+                    task.isCompleted()
             );
         }
     }
