@@ -11,7 +11,9 @@ mvn package
 java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.1.0.jar
 ```
 
-バックエンドが `http://localhost:8080` で起動した状態で、`index.html` をブラウザで開いてください（ダブルクリックでOK。ビルドやフロント用サーバーは不要です）。バックエンドに接続できない場合は画面上部に赤いエラーバナーが表示されます。詳細な起動方法・API仕様は [`backend/README.md`](./backend/README.md) を参照してください。
+バックエンドが `http://localhost:8080` で起動した状態で、ブラウザで **`http://localhost:8080/`** を開いてください（`mvn package` 時にフロントエンド一式がバックエンドの静的リソースとして同梱されます）。バックエンドに接続できない場合は画面上部に赤いエラーバナーが表示されます。詳細な起動方法・API仕様は [`backend/README.md`](./backend/README.md) を参照してください。
+
+**注意:** `index.html` を `file://` で直接（ダブルクリックで）開くと、ログイン機能が正しく動作しません。ブラウザはCookieのSameSite制限により、`file://` ページから `http://localhost:8080` への通信でセッションCookieを送信しないため、ログインしてもボードが表示されなかったり、リロードのたびにログアウト状態に戻ったりします。必ず `http://localhost:8080/` 経由で開いてください。
 
 ## 使い方
 

@@ -1,6 +1,6 @@
 # task-manager-api
 
-タスク管理アプリ用のSpring Boot REST API（既存の `index.html`/`app.js`（localStorage版）とは独立したバックエンドで、既存のフロントエンドとは接続していません）。
+タスク管理アプリ用のSpring Boot REST API（Board / Column / Task）。`mvn package` 時にリポジトリ直下の `index.html`/`app.js`/`style.css` を静的リソースとして同梱し、`http://localhost:8080/` でフロントエンドも一緒に配信する（Cookieベースのセッション認証を `file://` から使うとSameSite制限で壊れるため、同一オリジンで配信している）。
 
 ## 技術構成
 
