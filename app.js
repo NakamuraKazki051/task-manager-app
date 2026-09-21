@@ -1088,8 +1088,15 @@ async function handleAuthSubmit(e) {
   e.preventDefault();
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
+  const passwordConfirm = document.getElementById('authPasswordConfirm').value;
   const errorEl = document.getElementById('authError');
   errorEl.classList.add('hidden');
+
+  if (password !== passwordConfirm) {
+    errorEl.textContent = 'パスワードが一致しません。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
 
   let res;
   try {
