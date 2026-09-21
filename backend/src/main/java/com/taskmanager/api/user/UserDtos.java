@@ -18,6 +18,13 @@ public class UserDtos {
     ) {
     }
 
+    public record UpdateRequest(
+            @Email String email,
+            @NotBlank String currentPassword,
+            @Size(min = 8, max = 72, message = "パスワードは8〜72文字で入力してください") String newPassword
+    ) {
+    }
+
     public record UserResponse(String id, String email, Instant createdAt) {
         public static UserResponse from(User user) {
             return new UserResponse(user.getId(), user.getEmail(), user.getCreatedAt());

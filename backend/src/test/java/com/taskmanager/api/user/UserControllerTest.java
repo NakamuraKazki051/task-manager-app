@@ -6,12 +6,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,5 +78,73 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{not-valid-json"))
                 .andExpect(status().isBadRequest());
+    }
+
+    private MockHttpSession registerAndLogin(String email, String password) throws Exception {
+        register(email, password).andExpect(status().isCreated());
+        MvcResult result = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", email, "password", password))))
+                .andExpect(status().isOk())
+                .andReturn();
+        return (MockHttpSession) result.getRequest().getSession();
+    }
+
+    @Test
+    void updatesEmailAndPasswordWithCorrectCurrentPassword() throws Exception {
+        MockHttpSession session = registerAndLogin("update-me@example.com", "correcthorse");
+
+        mockMvc.perform(put("/api/users/me").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "updated@example.com",
+                                "currentPassword", "correcthorse",
+                                "newPassword", "newpassword123"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("updated@example.com"));
+
+        // old password no longer works, new one does
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "updated@example.com", "password", "correcthorse"))))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "updated@example.com", "password", "newpassword123"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void rejectsUpdateWithWrongCurrentPassword() throws Exception {
+        MockHttpSession session = registerAndLogin("wrongpw@example.com", "correcthorse");
+
+        mockMvc.perform(put("/api/users/me").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "shouldnotchange@example.com",
+                                "currentPassword", "wrongpassword"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsUpdateToEmailAlreadyTaken() throws Exception {
+        registerAndLogin("taken@example.com", "correcthorse");
+        MockHttpSession session = registerAndLogin("another@example.com", "correcthorse");
+
+        mockMvc.perform(put("/api/users/me").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "taken@example.com",
+                                "currentPassword", "correcthorse"))))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void updateRequiresLogin() throws Exception {
+        mockMvc.perform(put("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("currentPassword", "correcthorse"))))
+                .andExpect(status().isUnauthorized());
     }
 }
