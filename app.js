@@ -1133,8 +1133,15 @@ async function handleRegisterSubmit(e) {
   e.preventDefault();
   const email = document.getElementById('registerEmail').value.trim();
   const password = document.getElementById('registerPassword').value;
+  const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
   const errorEl = document.getElementById('registerError');
   errorEl.classList.add('hidden');
+
+  if (password !== passwordConfirm) {
+    errorEl.textContent = 'パスワードが一致しません。';
+    errorEl.classList.remove('hidden');
+    return;
+  }
 
   let res;
   try {
