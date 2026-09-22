@@ -116,10 +116,16 @@
           <input type="email" id="authEmail" required maxlength="255" autocomplete="username">
         </label>
         <label>パスワード
-          <input type="password" id="authPassword" required maxlength="72" autocomplete="current-password">
+          <div class="password-field">
+            <input type="password" id="authPassword" required maxlength="72" autocomplete="current-password">
+            <button type="button" class="password-toggle" data-target="authPassword" aria-label="パスワードを表示">👁</button>
+          </div>
         </label>
         <label>パスワード(確認)
-          <input type="password" id="authPasswordConfirm" required maxlength="72" autocomplete="current-password">
+          <div class="password-field">
+            <input type="password" id="authPasswordConfirm" maxlength="72" autocomplete="current-password">
+            <button type="button" class="password-toggle" data-target="authPasswordConfirm" aria-label="パスワードを表示">👁</button>
+          </div>
         </label>
         <div id="authError" class="auth-error hidden"></div>
         <div class="modal-actions">
@@ -140,10 +146,16 @@
           <input type="email" id="registerEmail" required maxlength="255" autocomplete="username">
         </label>
         <label>パスワード<span class="hint">(8文字以上)</span>
-          <input type="password" id="registerPassword" required minlength="8" maxlength="72" autocomplete="new-password">
+          <div class="password-field">
+            <input type="password" id="registerPassword" required minlength="8" maxlength="72" autocomplete="new-password">
+            <button type="button" class="password-toggle" data-target="registerPassword" aria-label="パスワードを表示">👁</button>
+          </div>
         </label>
         <label>パスワード(確認)
-          <input type="password" id="registerPasswordConfirm" required minlength="8" maxlength="72" autocomplete="new-password">
+          <div class="password-field">
+            <input type="password" id="registerPasswordConfirm" maxlength="72" autocomplete="new-password">
+            <button type="button" class="password-toggle" data-target="registerPasswordConfirm" aria-label="パスワードを表示">👁</button>
+          </div>
         </label>
         <div id="registerError" class="auth-error hidden"></div>
         <div class="modal-actions">
@@ -164,10 +176,16 @@
           <input type="email" id="accountEmail" required maxlength="255" autocomplete="username">
         </label>
         <label>新しいパスワード<span class="hint">(変更する場合のみ)</span>
-          <input type="password" id="accountNewPassword" maxlength="72" autocomplete="new-password">
+          <div class="password-field">
+            <input type="password" id="accountNewPassword" maxlength="72" autocomplete="new-password">
+            <button type="button" class="password-toggle" data-target="accountNewPassword" aria-label="パスワードを表示">👁</button>
+          </div>
         </label>
         <label>現在のパスワード<span class="required">*</span>
-          <input type="password" id="accountCurrentPassword" required maxlength="72" autocomplete="current-password">
+          <div class="password-field">
+            <input type="password" id="accountCurrentPassword" required maxlength="72" autocomplete="current-password">
+            <button type="button" class="password-toggle" data-target="accountCurrentPassword" aria-label="パスワードを表示">👁</button>
+          </div>
         </label>
         <div id="accountError" class="auth-error hidden"></div>
         <div class="modal-actions">

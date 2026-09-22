@@ -1074,7 +1074,9 @@ function renderAuthStatus() {
 }
 
 function openAuthModal() {
-  document.getElementById('authForm').reset();
+  const form = document.getElementById('authForm');
+  form.reset();
+  resetPasswordVisibility(form);
   document.getElementById('authError').classList.add('hidden');
   document.getElementById('authModalOverlay').classList.remove('hidden');
   document.getElementById('authEmail').focus();
@@ -1126,7 +1128,9 @@ async function handleAuthSubmit(e) {
 }
 
 function openRegisterModal() {
-  document.getElementById('registerForm').reset();
+  const form = document.getElementById('registerForm');
+  form.reset();
+  resetPasswordVisibility(form);
   document.getElementById('registerError').classList.add('hidden');
   document.getElementById('registerModalOverlay').classList.remove('hidden');
   document.getElementById('registerEmail').focus();
@@ -1197,7 +1201,9 @@ async function handleRegisterSubmit(e) {
 }
 
 function openAccountModal() {
-  document.getElementById('accountForm').reset();
+  const form = document.getElementById('accountForm');
+  form.reset();
+  resetPasswordVisibility(form);
   document.getElementById('accountEmail').value = currentUser ? currentUser.email : '';
   document.getElementById('accountError').classList.add('hidden');
   document.getElementById('accountModalOverlay').classList.remove('hidden');
@@ -1288,6 +1294,23 @@ document.getElementById('addBoardBtn').addEventListener('click', addBoard);
 document.getElementById('renameBoardBtn').addEventListener('click', renameBoard);
 document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard);
 document.getElementById('apiErrorDismiss').addEventListener('click', clearApiError);
+document.querySelectorAll('.password-toggle').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.target);
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';
+    btn.setAttribute('aria-label', show ? 'パスワードを非表示' : 'パスワードを表示');
+  });
+});
+
+function resetPasswordVisibility(form) {
+  form.querySelectorAll('.password-toggle').forEach((btn) => {
+    document.getElementById(btn.dataset.target).type = 'password';
+    btn.textContent = '👁';
+    btn.setAttribute('aria-label', 'パスワードを表示');
+  });
+}
 document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
 document.getElementById('authCancelBtn').addEventListener('click', closeAuthModal);
 document.getElementById('authModalOverlay').addEventListener('click', (e) => {
