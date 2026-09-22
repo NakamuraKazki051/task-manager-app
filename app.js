@@ -1341,7 +1341,21 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+function warnIfOpenedAsFile() {
+  if (location.protocol !== 'file:') return false;
+  const correctUrl = `${API_BASE}/`;
+  document.body.innerHTML = `
+    <div style="max-width: 560px; margin: 15vh auto; padding: 24px 28px; background: #fff3cd; color: #664d03; border: 1px solid #ffe69c; border-radius: 8px; font-family: sans-serif; line-height: 1.7;">
+      <h1 style="font-size: 1.1rem; margin: 0 0 10px;">このページでは正しく動作しません</h1>
+      <p style="margin: 0 0 10px;">このアプリはバックエンドと同じオリジンで開く必要があります。ファイルを直接開くと、ログインしてもセッションが保持されず、ボードが表示されません。</p>
+      <p style="margin: 0;">バックエンドを起動した状態で <a href="${correctUrl}" style="color: #0c66e4; font-weight: 700;">${correctUrl}</a> を開いてください。</p>
+    </div>
+  `;
+  return true;
+}
+
 async function init() {
+  if (warnIfOpenedAsFile()) return;
   applyTheme(loadTheme());
   updateNotifyBtn();
   await checkAuth();
