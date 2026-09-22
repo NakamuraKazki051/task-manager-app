@@ -621,19 +621,42 @@ button {
   margin-bottom: 12px;
 }
 
-#authForm label > input,
-#accountForm label > input,
-#registerForm label > input {
+#authForm label input,
+#accountForm label input,
+#registerForm label input {
   color: var(--text);
   font-size: 0.95rem;
 }
 
-#authForm label > input:focus,
-#accountForm label > input:focus,
-#registerForm label > input:focus {
+#authForm label input:focus,
+#accountForm label input:focus,
+#registerForm label input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+.password-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.password-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.password-toggle {
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 9px;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.password-toggle:hover { background: var(--border); }
 
 .auth-error {
   color: var(--danger);
