@@ -1,6 +1,7 @@
 const CURRENT_BOARD_KEY = 'task-manager-app:currentBoard';
 const THEME_KEY = 'task-manager-app:theme';
 const NOTIFY_KEY = 'task-manager-app:notify';
+const HIDE_COMPLETED_KEY = 'task-manager-app:hideCompleted';
 const LAST_NOTIFIED_KEY = 'task-manager-app:lastNotifiedDate';
 const DEFAULT_COLUMNS = [
   { name: '未着手', done: false },
@@ -28,6 +29,7 @@ let currentChecklist = [];
 let currentSort = 'manual';
 let searchDebounceTimer = null;
 let currentUser = null;
+let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === 'true';
 
 // --- APIクライアント ---
 
@@ -213,6 +215,8 @@ function renderColumns() {
     nameSpan.draggable = true;
     const count = document.createElement('span');
     count.className = 'count';
+    const hiddenHint = document.createElement('span');
+    hiddenHint.className = 'hidden-count';
     const moveLeftBtn = document.createElement('button');
     moveLeftBtn.type = 'button';
     moveLeftBtn.className = 'column-move';
@@ -244,6 +248,7 @@ function renderColumns() {
 
     h2.appendChild(nameSpan);
     h2.appendChild(count);
+    h2.appendChild(hiddenHint);
     h2.appendChild(moveLeftBtn);
     h2.appendChild(moveRightBtn);
     h2.appendChild(doneBtn);
@@ -256,14 +261,17 @@ function renderColumns() {
     section.appendChild(list);
     board.appendChild(section);
 
-    const colTasks = visibleTasks.filter(t => t.status === col.id);
+    const allColTasks = visibleTasks.filter(t => t.status === col.id);
+    const hiddenCount = hideCompleted ? allColTasks.filter(t => t.completed).length : 0;
+    const colTasks = hideCompleted ? allColTasks.filter(t => !t.completed) : allColTasks;
 
     count.textContent = colTasks.length;
+    hiddenHint.textContent = hiddenCount > 0 ? `(非表示 ${hiddenCount})` : '';
 
     if (colTasks.length === 0) {
       const hint = document.createElement('div');
       hint.className = 'empty-hint';
-      hint.textContent = 'タスクはありません';
+      hint.textContent = hiddenCount > 0 ? 'すべて完了済み(非表示)' : 'タスクはありません';
       list.appendChild(hint);
     }
 
@@ -1286,6 +1294,12 @@ document.getElementById('searchInput').addEventListener('input', () => {
 document.getElementById('sortSelect').addEventListener('change', (e) => {
   currentSort = e.target.value;
   render();
+});
+document.getElementById('hideCompletedToggle').checked = hideCompleted;
+document.getElementById('hideCompletedToggle').addEventListener('change', (e) => {
+  hideCompleted = e.target.checked;
+  localStorage.setItem(HIDE_COMPLETED_KEY, String(hideCompleted));
+  renderColumns();
 });
 document.getElementById('themeToggleBtn').addEventListener('click', cycleTheme);
 document.getElementById('notifyToggleBtn').addEventListener('click', toggleNotify);
