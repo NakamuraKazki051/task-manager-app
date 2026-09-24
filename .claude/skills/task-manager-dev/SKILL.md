@@ -51,6 +51,7 @@ description: task-manager-app（素のHTML/JS フロント + Spring Boot/Postgre
   数分かかるので `run_in_background` で流し、その間に別の作業を進める。結果は `backend/target/surefire-reports/*.xml` の `tests=` と `failures=` / `errors=` で確認する。ログはスクラッチパッドに出し、リポジトリの外に置き忘れない。
 - **サーバーの起動と動作確認。** `mvn -q -o package -DskipTests` で jar を作り、`java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.1.0.jar` を `run_in_background` で起動する。Windows では起動中の jar はロックされるので、作り直す前に 8080 番を使っているプロセスのコマンドラインを確かめてから止める。セッションはメモリ上にあるため、**再起動するとユーザーはログアウトされる**。ブラウザでのログイン・アカウント登録はできないので、ユーザーにログインしてもらう。ログインが要らない確認は curl で行い、作ったテストユーザーは終わったら DB から消す。
 - **Docker Desktop は自動起動しない。** ユーザーが手動で起動する運用で、本人も納得している。自動起動の設定は勧めない。Docker が止まっているとアプリを起動できずブラウザ確認ができないので、その場合は「未確認」とはっきり報告する。
+- **確認が終わったら、毎回すべて止める（ユーザーの指示、確認は不要）。** 8080番のサーバー → `docker compose stop`（DBコンテナ）→ `docker desktop stop`（Docker Desktop本体）の順に止める。データは名前付きボリューム `task-manager-app_db-data` に残るので、`docker compose down -v` のようにボリュームを消すコマンドは使わない。ユーザーがまだログインして操作するかもしれない途中では止めない。
 
 ## テストの考え方
 
@@ -82,6 +83,10 @@ description: task-manager-app（素のHTML/JS フロント + Spring Boot/Postgre
 - 入力検証: フロントの制限とバックエンドの `@Size` / `@NotBlank` が一致しているか。500 になる入力がないか。
 - フロント: XSS（`innerHTML`）、日付のタイムゾーン、状態の取り残し（ボード切り替え時やログアウト時）。
 - ドキュメント: README の機能一覧・手順、API表が実装と一致しているか。
+
+## 不具合を見つけたとき
+
+動作確認中・レビュー中・別作業のついでなど、どこで見つけても**その場で直してから報告する**（ユーザーの指示）。「直してよければ言ってください」と聞かない。テスト付きで直し、通常の出荷フローで master まで届け、何が原因で何を変えたかを伝える。ただし、ユーザー自身のデータ（ボード・タスクなど）を消す・書き換える作業は、今まで通り先に確認する。
 
 ## 報告の仕方
 
