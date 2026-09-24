@@ -30,6 +30,8 @@ let currentSort = 'manual';
 let searchDebounceTimer = null;
 let currentUser = null;
 let hideCompleted = localStorage.getItem(HIDE_COMPLETED_KEY) === 'true';
+let selectionMode = false;
+let selectedTaskIds = new Set();
 
 // --- APIクライアント ---
 
@@ -198,9 +200,20 @@ async function render() {
   renderColumns();
 }
 
+function getRenderedTasks() {
+  return hideCompleted ? visibleTasks.filter(t => !t.completed) : visibleTasks;
+}
+
 function renderColumns() {
   const board = document.getElementById('board');
   board.innerHTML = '';
+
+  // フィルタや「完了済みを隠す」で見えなくなったタスクは選択から外す(見えていないタスクを誤って消さないため)
+  if (selectionMode) {
+    const renderedIds = new Set(getRenderedTasks().map(t => t.id));
+    selectedTaskIds = new Set([...selectedTaskIds].filter(id => renderedIds.has(id)));
+    updateSelectionBar();
+  }
 
   columns.forEach((col, index) => {
     const section = document.createElement('section');
@@ -469,7 +482,9 @@ function renderCard(task) {
   const card = document.createElement('div');
   card.className = 'task-card';
   card.classList.toggle('completed', !!task.completed);
-  card.draggable = true;
+  card.classList.toggle('selectable', selectionMode);
+  card.classList.toggle('selected', selectionMode && selectedTaskIds.has(task.id));
+  card.draggable = !selectionMode;
   card.dataset.id = task.id;
 
   const overdue = isOverdue(task);
@@ -500,8 +515,18 @@ function renderCard(task) {
   (task.categories || []).forEach((c, i) => { tagEls[i].textContent = c; });
 
   const completeCheck = card.querySelector('.task-complete-check');
-  completeCheck.checked = !!task.completed;
   completeCheck.addEventListener('click', (e) => e.stopPropagation());
+
+  // 選択モード中は先頭のチェックボックスとカードのクリックを「選択」に使う
+  if (selectionMode) {
+    completeCheck.checked = selectedTaskIds.has(task.id);
+    completeCheck.setAttribute('aria-label', 'このタスクを選択');
+    completeCheck.addEventListener('change', () => setTaskSelected(task.id, completeCheck.checked, card, completeCheck));
+    card.addEventListener('click', () => setTaskSelected(task.id, !selectedTaskIds.has(task.id), card, completeCheck));
+    return card;
+  }
+
+  completeCheck.checked = !!task.completed;
   completeCheck.addEventListener('change', () => toggleTaskComplete(task, completeCheck));
 
   card.addEventListener('click', () => openModal(task));
@@ -529,6 +554,56 @@ async function toggleTaskComplete(task, checkbox) {
   }
   const idx = tasks.findIndex(t => t.id === task.id);
   if (idx !== -1) tasks[idx].completed = completed;
+  render();
+}
+
+// --- 一括選択・一括削除 ---
+
+function setSelectionMode(enabled) {
+  selectionMode = enabled;
+  selectedTaskIds = new Set();
+  const btn = document.getElementById('selectionModeBtn');
+  btn.classList.toggle('active', enabled);
+  btn.setAttribute('aria-pressed', String(enabled));
+  document.getElementById('selectionBar').classList.toggle('hidden', !enabled);
+  updateSelectionBar();
+  if (currentBoardId) renderColumns();
+}
+
+function setTaskSelected(id, selected, card, checkbox) {
+  if (selected) selectedTaskIds.add(id); else selectedTaskIds.delete(id);
+  card.classList.toggle('selected', selected);
+  checkbox.checked = selected;
+  updateSelectionBar();
+}
+
+function selectTasks(list) {
+  list.forEach(t => selectedTaskIds.add(t.id));
+  renderColumns();
+}
+
+function updateSelectionBar() {
+  const n = selectedTaskIds.size;
+  document.getElementById('selectionCount').textContent = n > 0
+    ? `${n}件選択中`
+    : '削除するタスクをクリックして選択';
+  document.getElementById('bulkDeleteBtn').disabled = n === 0;
+  document.getElementById('clearSelectionBtn').disabled = n === 0;
+}
+
+async function handleBulkDelete() {
+  const ids = [...selectedTaskIds];
+  if (!ids.length) return;
+  if (!confirm(`選択した${ids.length}件のタスクを削除しますか?この操作は取り消せません。`)) return;
+  try {
+    await apiPost(`/api/boards/${currentBoardId}/tasks/bulk-delete`, { taskIds: ids });
+  } catch (err) {
+    return;
+  }
+  const deleted = new Set(ids);
+  tasks = tasks.filter(t => !deleted.has(t.id));
+  selectedTaskIds = new Set();
+  updateSelectionBar();
   render();
 }
 
@@ -849,6 +924,7 @@ async function switchBoard(id) {
     renderBoardSelect();
     return;
   }
+  setSelectionMode(false);
   currentSort = 'manual';
   document.getElementById('sortSelect').value = 'manual';
   document.getElementById('searchInput').value = '';
@@ -1018,6 +1094,7 @@ function showLoggedOutState() {
   visibleTasks = [];
   columns = [];
   currentBoardId = null;
+  setSelectionMode(false);
   setLoggedInUiVisible(false);
   const board = document.getElementById('board');
   board.innerHTML = '';
@@ -1301,6 +1378,15 @@ document.getElementById('hideCompletedToggle').addEventListener('change', (e) =>
   localStorage.setItem(HIDE_COMPLETED_KEY, String(hideCompleted));
   renderColumns();
 });
+document.getElementById('selectionModeBtn').addEventListener('click', () => setSelectionMode(!selectionMode));
+document.getElementById('exitSelectionBtn').addEventListener('click', () => setSelectionMode(false));
+document.getElementById('selectAllVisibleBtn').addEventListener('click', () => selectTasks(getRenderedTasks()));
+document.getElementById('selectCompletedBtn').addEventListener('click', () => selectTasks(getRenderedTasks().filter(t => t.completed)));
+document.getElementById('clearSelectionBtn').addEventListener('click', () => {
+  selectedTaskIds = new Set();
+  renderColumns();
+});
+document.getElementById('bulkDeleteBtn').addEventListener('click', handleBulkDelete);
 document.getElementById('themeToggleBtn').addEventListener('click', cycleTheme);
 document.getElementById('notifyToggleBtn').addEventListener('click', toggleNotify);
 document.getElementById('boardSelect').addEventListener('change', (e) => switchBoard(e.target.value));
@@ -1341,6 +1427,10 @@ document.getElementById('accountModalOverlay').addEventListener('click', (e) => 
   if (e.target.id === 'accountModalOverlay') closeAccountModal();
 });
 document.addEventListener('keydown', (e) => {
+  const anyModalOpen = [...document.querySelectorAll('.modal-overlay')].some(el => !el.classList.contains('hidden'));
+  if (e.key === 'Escape' && selectionMode && !anyModalOpen) {
+    setSelectionMode(false);
+  }
   if (e.key === 'Escape' && !document.getElementById('modalOverlay').classList.contains('hidden')) {
     closeModal();
   }

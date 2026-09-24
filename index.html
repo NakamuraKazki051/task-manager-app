@@ -40,6 +40,7 @@
         <input type="checkbox" id="hideCompletedToggle">
         完了済みを隠す
       </label>
+      <button type="button" id="selectionModeBtn" class="btn-secondary" aria-pressed="false" title="タスクを複数選択してまとめて削除します">☑ 選択</button>
       <button type="button" id="themeToggleBtn" class="btn-secondary"></button>
       <button type="button" id="notifyToggleBtn" class="btn-secondary"></button>
       <button id="exportBtn" class="btn-secondary">エクスポート</button>
@@ -52,6 +53,17 @@
   <div id="apiErrorBanner" class="api-error-banner hidden" role="alert">
     <span id="apiErrorMessage"></span>
     <button type="button" id="apiErrorDismiss" class="icon-btn" aria-label="閉じる">×</button>
+  </div>
+
+  <div id="selectionBar" class="selection-bar hidden" role="region" aria-label="タスクの一括操作">
+    <span id="selectionCount" class="selection-count" aria-live="polite"></span>
+    <div class="selection-actions">
+      <button type="button" id="selectAllVisibleBtn" class="btn-secondary">表示中をすべて選択</button>
+      <button type="button" id="selectCompletedBtn" class="btn-secondary">完了済みを選択</button>
+      <button type="button" id="clearSelectionBtn" class="btn-secondary">選択解除</button>
+      <button type="button" id="bulkDeleteBtn" class="btn-danger">選択したタスクを削除</button>
+      <button type="button" id="exitSelectionBtn" class="btn-secondary">終了</button>
+    </div>
   </div>
 
   <main class="board" id="board"></main>

@@ -247,4 +247,55 @@ class TaskControllerTest {
         mockMvc.perform(get("/api/tasks/{id}", taskId).session(session))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void bulkDeletesTasksAndRenumbersColumns() throws Exception {
+        String boardId = createBoard();
+        String columnA = createColumn(boardId, "列A");
+        String columnB = createColumn(boardId, "列B");
+        String a1 = createTask(boardId, columnA, Map.of("title", "A1"));
+        String a2 = createTask(boardId, columnA, Map.of("title", "A2"));
+        String a3 = createTask(boardId, columnA, Map.of("title", "A3"));
+        String b1 = createTask(boardId, columnB, Map.of("title", "B1"));
+
+        mockMvc.perform(post("/api/boards/{boardId}/tasks/bulk-delete", boardId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("taskIds", List.of(a1, a2, b1)))))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/boards/{boardId}/tasks", boardId).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(a3))
+                .andExpect(jsonPath("$[0].displayOrder").value(0));
+    }
+
+    @Test
+    void bulkDeleteRejectsForeignTasksWithoutDeletingAnything() throws Exception {
+        String boardA = createBoard();
+        String boardB = createBoard();
+        String columnA = createColumn(boardA, "列");
+        String columnB = createColumn(boardB, "列");
+        String taskA = createTask(boardA, columnA, Map.of("title", "A"));
+        String taskB = createTask(boardB, columnB, Map.of("title", "B"));
+
+        mockMvc.perform(post("/api/boards/{boardId}/tasks/bulk-delete", boardA).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("taskIds", List.of(taskA, taskB)))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/tasks/{id}", taskA).session(session)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/tasks/{id}", taskB).session(session)).andExpect(status().isOk());
+
+        MockHttpSession otherSession = TestAuth.registerAndLogin(mockMvc, objectMapper);
+        mockMvc.perform(post("/api/boards/{boardId}/tasks/bulk-delete", boardA).session(otherSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("taskIds", List.of(taskA)))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/boards/{boardId}/tasks/bulk-delete", boardA).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("taskIds", List.of()))))
+                .andExpect(status().isBadRequest());
+    }
 }

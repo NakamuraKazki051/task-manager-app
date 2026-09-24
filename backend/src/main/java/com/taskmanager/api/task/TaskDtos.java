@@ -1,6 +1,7 @@
 package com.taskmanager.api.task;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,6 +37,9 @@ public class TaskDtos {
     }
 
     public record CompleteRequest(boolean completed) {
+    }
+
+    public record BulkDeleteRequest(@NotEmpty List<String> taskIds) {
     }
 
     public record TaskResponse(

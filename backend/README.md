@@ -42,6 +42,7 @@ java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.
 | PUT | `/api/tasks/{id}` | タスク更新（チェックリスト・カテゴリ含む全体更新） |
 | PATCH | `/api/tasks/{id}/move` | 列移動・並び順変更 `{columnId, displayOrder}` |
 | DELETE | `/api/tasks/{id}` | タスク削除 |
+| POST | `/api/boards/{boardId}/tasks/bulk-delete` | タスク一括削除 `{taskIds}`（存在しない・別ボードのIDが1件でも含まれると何も削除せず404） |
 
 タスクのリクエスト/レスポンス例:
 
