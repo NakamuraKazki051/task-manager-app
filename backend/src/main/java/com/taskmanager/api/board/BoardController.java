@@ -3,10 +3,13 @@ package com.taskmanager.api.board;
 import com.taskmanager.api.auth.CurrentUser;
 import com.taskmanager.api.board.BoardDtos.BoardRequest;
 import com.taskmanager.api.board.BoardDtos.BoardResponse;
+import com.taskmanager.api.column.BoardColumnRepository;
 import com.taskmanager.api.common.ApiException;
+import com.taskmanager.api.task.TaskRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,10 +19,15 @@ import java.util.List;
 public class BoardController {
 
     private final BoardRepository boardRepository;
+    private final BoardColumnRepository columnRepository;
+    private final TaskRepository taskRepository;
     private final CurrentUser currentUser;
 
-    public BoardController(BoardRepository boardRepository, CurrentUser currentUser) {
+    public BoardController(BoardRepository boardRepository, BoardColumnRepository columnRepository,
+                           TaskRepository taskRepository, CurrentUser currentUser) {
         this.boardRepository = boardRepository;
+        this.columnRepository = columnRepository;
+        this.taskRepository = taskRepository;
         this.currentUser = currentUser;
     }
 
@@ -48,6 +56,7 @@ public class BoardController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
     public void delete(@PathVariable String id, HttpServletRequest httpRequest) {
         String userId = currentUser.require(httpRequest);
         if (!boardRepository.existsByIdAndUserId(id, userId)) {
@@ -56,6 +65,9 @@ public class BoardController {
         if (boardRepository.countByUserId(userId) <= 1) {
             throw ApiException.badRequest("最後の1ボードは削除できません");
         }
+        // 列・タスクはボードへの外部キーを持たないため、明示的に消さないとDBに残り続ける
+        taskRepository.deleteByBoardId(id);
+        columnRepository.deleteByBoardId(id);
         boardRepository.deleteById(id);
     }
 }

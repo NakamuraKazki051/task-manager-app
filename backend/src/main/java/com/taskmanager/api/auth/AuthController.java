@@ -37,6 +37,10 @@ public class AuthController {
         User user = userRepository.findByEmail(email)
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
                 .orElseThrow(() -> ApiException.unauthorized("メールアドレスまたはパスワードが正しくありません"));
+        // ログイン前から存在するセッションIDを使い回さない(セッション固定攻撃対策)
+        if (httpRequest.getSession(false) != null) {
+            httpRequest.changeSessionId();
+        }
         httpRequest.getSession(true).setAttribute(CurrentUser.SESSION_KEY, user.getId());
         return UserResponse.from(user);
     }

@@ -1,6 +1,8 @@
 package com.taskmanager.api.board;
 
 import com.taskmanager.api.TestAuth;
+import com.taskmanager.api.column.BoardColumnRepository;
+import com.taskmanager.api.task.TaskRepository;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -27,6 +30,12 @@ class BoardControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TaskRepository taskRepository;
+
+    @Autowired
+    private BoardColumnRepository columnRepository;
 
     private MockHttpSession session;
 
@@ -112,6 +121,27 @@ class BoardControllerTest {
 
         mockMvc.perform(delete("/api/boards/{id}", first).session(session))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deletingBoardAlsoDeletesItsColumnsAndTasks() throws Exception {
+        createBoard("残すボード");
+        String boardId = createBoard("消すボード");
+        String columnBody = mockMvc.perform(post("/api/boards/{boardId}/columns", boardId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "列", "done", false))))
+                .andReturn().getResponse().getContentAsString();
+        String columnId = objectMapper.readTree(columnBody).get("id").asText();
+        mockMvc.perform(post("/api/boards/{boardId}/tasks", boardId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("title", "タスク", "columnId", columnId))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/boards/{id}", boardId).session(session))
+                .andExpect(status().isNoContent());
+
+        assertEquals(0, taskRepository.findByBoardId(boardId).size());
+        assertEquals(0, columnRepository.countByBoardId(boardId));
     }
 
     @Test

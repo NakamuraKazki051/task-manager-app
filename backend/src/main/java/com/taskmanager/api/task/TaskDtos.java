@@ -2,6 +2,7 @@ package com.taskmanager.api.task;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,9 +23,9 @@ public class TaskDtos {
     }
 
     public record TaskRequest(
-            @NotBlank String title,
-            String description,
-            String columnId,
+            @NotBlank @Size(max = 100) String title,
+            @Size(max = 500) String description,
+            @NotBlank String columnId,
             LocalDate dueDate,
             Priority priority,
             List<String> categories,

@@ -602,10 +602,15 @@ function formatDate(isoDate) {
 function formatCreatedAt(isoInstant) {
   const d = new Date(isoInstant);
   if (Number.isNaN(d.getTime())) return '';
+  return localDateString(d).replaceAll('-', '/');
+}
+
+// toISOString()はUTC基準のため、日本時間の0〜9時に前日の日付になってしまう。ローカル日付で YYYY-MM-DD を作る
+function localDateString(d = new Date()) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}/${m}/${day}`;
+  return `${y}-${m}-${day}`;
 }
 
 function escapeHtml(str) {
@@ -816,7 +821,7 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `task-manager-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `task-manager-backup-${localDateString()}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -1037,7 +1042,7 @@ function toggleNotify() {
 function checkDueNotifications(force) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (localStorage.getItem(NOTIFY_KEY) !== 'true') return;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = localDateString();
   if (!force && localStorage.getItem(LAST_NOTIFIED_KEY) === todayStr) return;
   const dueTasks = tasks.filter(t => {
     const col = columns.find(c => c.id === t.status);
