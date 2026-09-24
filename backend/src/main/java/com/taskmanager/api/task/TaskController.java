@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 public class TaskController {
@@ -180,6 +182,25 @@ public class TaskController {
         String columnId = task.getColumnId();
         taskRepository.deleteById(id);
         renumberColumn(columnId);
+    }
+
+    @PostMapping("/api/boards/{boardId}/tasks/bulk-delete")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void bulkDelete(@PathVariable String boardId, @Valid @RequestBody BulkDeleteRequest request, HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        requireBoardOwnership(boardId, userId);
+        Set<String> ids = new LinkedHashSet<>(request.taskIds());
+        List<Task> targets = taskRepository.findAllById(ids);
+        // 1件でも見つからない・別ボードのタスクが混ざっていれば何も削除せずに失敗させる
+        if (targets.size() != ids.size() || targets.stream().anyMatch(t -> !t.getBoardId().equals(boardId))) {
+            throw ApiException.notFound("削除対象に存在しないタスクが含まれています");
+        }
+        Set<String> affectedColumnIds = new LinkedHashSet<>();
+        targets.forEach(t -> affectedColumnIds.add(t.getColumnId()));
+        taskRepository.deleteAll(targets);
+        taskRepository.flush();
+        affectedColumnIds.forEach(this::renumberColumn);
     }
 
     private void renumberColumn(String columnId) {
