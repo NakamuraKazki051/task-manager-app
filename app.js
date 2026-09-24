@@ -1101,9 +1101,9 @@ async function loadApp() {
   try {
     boards = await apiGet('/api/boards');
     if (!boards.length) {
-      const board = await apiPost('/api/boards', { name: 'マイボード' });
-      await createDefaultColumns(board.id);
-      boards = [board];
+      // 「ボードが無ければ作る」をフロントで判定すると、複数タブや二重ログインで同時に走ったときに
+      // マイボードが重複して作られるため、判定と作成はサーバー側でまとめて行う
+      boards = await apiPost('/api/boards/ensure-default', {});
     }
     await loadBoardData(loadCurrentBoardId());
   } catch (err) {
@@ -1121,6 +1121,7 @@ function renderAuthStatus() {
     const emailSpan = document.createElement('span');
     emailSpan.className = 'auth-email';
     emailSpan.textContent = currentUser.email;
+    emailSpan.title = currentUser.email;
     const accountBtn = document.createElement('button');
     accountBtn.type = 'button';
     accountBtn.className = 'btn-secondary';

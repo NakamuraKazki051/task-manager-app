@@ -28,6 +28,7 @@ description: task-manager-app（素のHTML/JS フロント + Spring Boot/Postgre
 - リクエストDTOには、フロントの `maxlength` と同じ `@Size` と、必須項目の `@NotBlank` / `@NotEmpty` を付ける。付けないと、長すぎる値や欠けた値でDBエラーになって 500 が返る。
 - エラーは `ApiException.notFound/badRequest/conflict/unauthorized` を投げる。メッセージは日本語で、フロントのエラーバナーにそのまま表示される。
 - 一括系のAPIは「1件でも不正なら何も変更しない」ようにする（例: `POST /api/boards/{boardId}/tasks/bulk-delete`）。
+- 「無ければ作る」処理はフロントで判定しない。複数タブや二重送信で同時に走ると重複して作られる（実際に「マイボード」が3つできた）。サーバー側で `userRepository.findByIdForUpdate` でユーザー行をロックしてから判定・作成する（例: `POST /api/boards/ensure-default`）。同時実行のテストは `@Transactional` を付けないテストクラスで、複数スレッドから同時に呼んで確認する。
 
 **フロントエンド（`app.js`）**
 - API呼び出しは `apiGet/apiPost/apiPut/apiPatch/apiDelete` を使う。失敗時はバナー表示済みなので、呼び出し側は `catch (err) { return; }` で処理を止めるだけでよい。
@@ -48,6 +49,7 @@ description: task-manager-app（素のHTML/JS フロント + Spring Boot/Postgre
     -DargLine="-Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m"
   ```
   数分かかるので `run_in_background` で流し、その間に別の作業を進める。結果は `backend/target/surefire-reports/*.xml` の `tests=` と `failures=` / `errors=` で確認する。ログはスクラッチパッドに出し、リポジトリの外に置き忘れない。
+- **サーバーの起動と動作確認。** `mvn -q -o package -DskipTests` で jar を作り、`java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.1.0.jar` を `run_in_background` で起動する。Windows では起動中の jar はロックされるので、作り直す前に 8080 番を使っているプロセスのコマンドラインを確かめてから止める。セッションはメモリ上にあるため、**再起動するとユーザーはログアウトされる**。ブラウザでのログイン・アカウント登録はできないので、ユーザーにログインしてもらう。ログインが要らない確認は curl で行い、作ったテストユーザーは終わったら DB から消す。
 - **Docker Desktop は自動起動しない。** ユーザーが手動で起動する運用で、本人も納得している。自動起動の設定は勧めない。Docker が止まっているとアプリを起動できずブラウザ確認ができないので、その場合は「未確認」とはっきり報告する。
 
 ## テストの考え方

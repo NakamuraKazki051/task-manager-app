@@ -37,6 +37,7 @@ java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.
 | GET | `/api/auth/me` | ログイン中のユーザー |
 | GET | `/api/boards` | ボード一覧 |
 | POST | `/api/boards` | ボード作成 `{name}` |
+| POST | `/api/boards/ensure-default` | ボードが1つも無ければ「マイボード」と既定の列（未着手/進行中/完了）を作成し、ボード一覧を返す。同時に呼ばれても1つしか作らない（初回ログイン時にフロントが使用） |
 | PUT | `/api/boards/{id}` | ボード名変更 `{name}` |
 | DELETE | `/api/boards/{id}` | ボード削除（そのボードの列・タスクも削除。最後の1件は不可） |
 | PUT | `/api/boards/{boardId}/import` | ボードの列・タスクをJSONで全置換 `{columns, tasks}` |

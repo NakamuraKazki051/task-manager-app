@@ -3,9 +3,11 @@ package com.taskmanager.api.board;
 import com.taskmanager.api.auth.CurrentUser;
 import com.taskmanager.api.board.BoardDtos.BoardRequest;
 import com.taskmanager.api.board.BoardDtos.BoardResponse;
+import com.taskmanager.api.column.BoardColumn;
 import com.taskmanager.api.column.BoardColumnRepository;
 import com.taskmanager.api.common.ApiException;
 import com.taskmanager.api.task.TaskRepository;
+import com.taskmanager.api.user.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,13 +23,15 @@ public class BoardController {
     private final BoardRepository boardRepository;
     private final BoardColumnRepository columnRepository;
     private final TaskRepository taskRepository;
+    private final UserRepository userRepository;
     private final CurrentUser currentUser;
 
     public BoardController(BoardRepository boardRepository, BoardColumnRepository columnRepository,
-                           TaskRepository taskRepository, CurrentUser currentUser) {
+                           TaskRepository taskRepository, UserRepository userRepository, CurrentUser currentUser) {
         this.boardRepository = boardRepository;
         this.columnRepository = columnRepository;
         this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
         this.currentUser = currentUser;
     }
 
@@ -43,6 +47,27 @@ public class BoardController {
         String userId = currentUser.require(httpRequest);
         Board board = boardRepository.save(new Board(userId, request.name().trim()));
         return BoardResponse.from(board);
+    }
+
+    /**
+     * ボードが1つも無いユーザーに、初期ボード「マイボード」と既定の列を作る。既にボードがあれば何もせず一覧を返す。
+     * 初回ログイン時に複数タブや二重送信で同時に呼ばれても、ユーザー行のロックで直列化されるので1つしか作られない。
+     */
+    @PostMapping("/ensure-default")
+    @Transactional
+    public List<BoardResponse> ensureDefault(HttpServletRequest httpRequest) {
+        String userId = currentUser.require(httpRequest);
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> ApiException.unauthorized("ログインしていません"));
+        List<Board> boards = boardRepository.findByUserId(userId);
+        if (boards.isEmpty()) {
+            Board board = boardRepository.save(new Board(userId, "マイボード"));
+            columnRepository.save(new BoardColumn(board.getId(), "未着手", false, 0));
+            columnRepository.save(new BoardColumn(board.getId(), "進行中", false, 1));
+            columnRepository.save(new BoardColumn(board.getId(), "完了", true, 2));
+            boards = List.of(board);
+        }
+        return boards.stream().map(BoardResponse::from).toList();
     }
 
     @PutMapping("/{id}")

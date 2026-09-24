@@ -145,6 +145,44 @@ class BoardControllerTest {
     }
 
     @Test
+    void ensureDefaultCreatesOneBoardWithDefaultColumnsOnlyOnce() throws Exception {
+        mockMvc.perform(post("/api/boards/ensure-default").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("マイボード"));
+        mockMvc.perform(post("/api/boards/ensure-default").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+
+        String body = mockMvc.perform(get("/api/boards").session(session))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andReturn().getResponse().getContentAsString();
+        String boardId = objectMapper.readTree(body).get(0).get("id").asText();
+        mockMvc.perform(get("/api/boards/{boardId}/columns", boardId).session(session))
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].name").value("未着手"))
+                .andExpect(jsonPath("$[1].name").value("進行中"))
+                .andExpect(jsonPath("$[2].name").value("完了"))
+                .andExpect(jsonPath("$[2].done").value(true));
+    }
+
+    @Test
+    void ensureDefaultLeavesExistingBoardsAlone() throws Exception {
+        createBoard("自分で作ったボード");
+
+        mockMvc.perform(post("/api/boards/ensure-default").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("自分で作ったボード"));
+    }
+
+    @Test
+    void ensureDefaultRequiresLogin() throws Exception {
+        mockMvc.perform(post("/api/boards/ensure-default"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void deletingUnknownBoardReturnsNotFound() throws Exception {
         mockMvc.perform(delete("/api/boards/{id}", "does-not-exist").session(session))
                 .andExpect(status().isNotFound());
