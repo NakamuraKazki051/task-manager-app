@@ -166,12 +166,24 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 狭い画面では長いメールアドレスに押されてボタンが1文字ずつ改行されていたため、ボタンは縮めずメールアドレスを省略表示する */
+.auth-status button {
+  flex: none;
+  white-space: nowrap;
 }
 
 .auth-email {
   color: var(--text-oncolor);
   font-size: 0.85rem;
   opacity: 0.85;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .search-input {
