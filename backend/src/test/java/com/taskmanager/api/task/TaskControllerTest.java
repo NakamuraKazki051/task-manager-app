@@ -249,6 +249,42 @@ class TaskControllerTest {
     }
 
     @Test
+    void invalidTaskPayloadReturnsBadRequestNotServerError() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "列");
+
+        mockMvc.perform(post("/api/boards/{boardId}/tasks", boardId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("title", "列なし"))))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/boards/{boardId}/tasks", boardId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("title", "あ".repeat(101), "columnId", columnId))))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/boards/{boardId}/tasks", boardId).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("title", "長い詳細", "description", "あ".repeat(501), "columnId", columnId))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void sortByPriorityKeepsManualOrderWithinSamePriority() throws Exception {
+        String boardId = createBoard();
+        String columnId = createColumn(boardId, "列");
+        String first = createTask(boardId, columnId, Map.of("title", "1", "priority", "MID"));
+        String high = createTask(boardId, columnId, Map.of("title", "2", "priority", "HIGH"));
+        String second = createTask(boardId, columnId, Map.of("title", "3", "priority", "MID"));
+
+        mockMvc.perform(get("/api/boards/{boardId}/tasks", boardId).param("sort", "priority").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(high))
+                .andExpect(jsonPath("$[1].id").value(first))
+                .andExpect(jsonPath("$[2].id").value(second));
+    }
+
+    @Test
     void bulkDeletesTasksAndRenumbersColumns() throws Exception {
         String boardId = createBoard();
         String columnA = createColumn(boardId, "列A");

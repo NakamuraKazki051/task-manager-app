@@ -26,21 +26,31 @@ java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.
 
 ## エンドポイント
 
+認証はCookieセッション方式。`/api/users/register` と `/api/auth/login` 以外はログインが必要で、未ログインなら401を返す。他ユーザーのボード・列・タスクへのアクセスは存在しない扱い（404）になる。CORSは `http://localhost:*` / `http://127.0.0.1:*` からのみ許可している。
+
 | メソッド | パス | 説明 |
 |---|---|---|
+| POST | `/api/users/register` | ユーザー登録 `{email, password}`（パスワードは8〜72文字） |
+| PUT | `/api/users/me` | メールアドレス・パスワード変更 `{email?, newPassword?, currentPassword}` |
+| POST | `/api/auth/login` | ログイン `{email, password}`（セッションIDを再発行） |
+| POST | `/api/auth/logout` | ログアウト |
+| GET | `/api/auth/me` | ログイン中のユーザー |
 | GET | `/api/boards` | ボード一覧 |
 | POST | `/api/boards` | ボード作成 `{name}` |
 | PUT | `/api/boards/{id}` | ボード名変更 `{name}` |
-| DELETE | `/api/boards/{id}` | ボード削除（最後の1件は不可） |
+| DELETE | `/api/boards/{id}` | ボード削除（そのボードの列・タスクも削除。最後の1件は不可） |
+| PUT | `/api/boards/{boardId}/import` | ボードの列・タスクをJSONで全置換 `{columns, tasks}` |
 | GET | `/api/boards/{boardId}/columns` | 列一覧 |
 | POST | `/api/boards/{boardId}/columns` | 列作成 `{name, done}` |
 | PUT | `/api/columns/{id}` | 列更新 `{name?, done?}` |
+| PATCH | `/api/columns/{id}/move` | 列の並び替え `{displayOrder}` |
 | DELETE | `/api/columns/{id}` | 列削除（タスクが残っている列・最後の1列は不可） |
-| GET | `/api/boards/{boardId}/tasks?category=&priority=&q=&sort=manual\|due\|priority` | タスク一覧（フィルタ・検索・並び替え） |
-| POST | `/api/boards/{boardId}/tasks` | タスク作成 |
+| GET | `/api/boards/{boardId}/tasks?category=&priority=&q=&sort=manual\|due\|priority` | タスク一覧（フィルタ・検索・並び替え。同順位は手動の並び順） |
+| POST | `/api/boards/{boardId}/tasks` | タスク作成（`title` 100文字・`description` 500文字まで、`columnId` 必須） |
 | GET | `/api/tasks/{id}` | タスク取得 |
 | PUT | `/api/tasks/{id}` | タスク更新（チェックリスト・カテゴリ含む全体更新） |
 | PATCH | `/api/tasks/{id}/move` | 列移動・並び順変更 `{columnId, displayOrder}` |
+| PATCH | `/api/tasks/{id}/complete` | 完了/未完了の切り替え `{completed}` |
 | DELETE | `/api/tasks/{id}` | タスク削除 |
 | POST | `/api/boards/{boardId}/tasks/bulk-delete` | タスク一括削除 `{taskIds}`（存在しない・別ボードのIDが1件でも含まれると何も削除せず404） |
 

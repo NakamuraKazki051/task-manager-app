@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -61,10 +62,13 @@ public class TaskController {
             ).toList();
         }
 
+        // 同じ期限・優先度どうしはDBの返却順に任せず、手動の並び順で安定させる
+        Comparator<Task> byDisplayOrder = Comparator.comparingInt(Task::getDisplayOrder);
         Comparator<Task> comparator = switch (sort) {
-            case "due" -> Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()));
-            case "priority" -> Comparator.comparing(t -> priorityRank(t.getPriority()));
-            default -> Comparator.comparingInt(Task::getDisplayOrder);
+            case "due" -> Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
+                    .thenComparing(byDisplayOrder);
+            case "priority" -> Comparator.<Task>comparingInt(t -> priorityRank(t.getPriority())).thenComparing(byDisplayOrder);
+            default -> byDisplayOrder;
         };
 
         return tasks.stream().sorted(comparator).map(TaskResponse::from).toList();

@@ -13,8 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -57,6 +60,35 @@ class AuthControllerTest {
 
         mockMvc.perform(get("/api/auth/me").session(session))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loginRotatesExistingSessionId() throws Exception {
+        register("fixation@example.com", "correcthorse");
+        MockHttpSession preLoginSession = new MockHttpSession();
+        String idBeforeLogin = preLoginSession.getId();
+
+        MvcResult result = mockMvc.perform(post("/api/auth/login").session(preLoginSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "fixation@example.com", "password", "correcthorse"))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertNotEquals(idBeforeLogin, result.getRequest().getSession().getId());
+    }
+
+    @Test
+    void corsAllowsLocalOriginsButNotArbitrarySites() throws Exception {
+        mockMvc.perform(options("/api/boards")
+                        .header("Origin", "http://localhost:5500")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5500"));
+
+        mockMvc.perform(options("/api/boards")
+                        .header("Origin", "https://evil.example.com")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
