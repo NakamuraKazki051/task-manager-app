@@ -1047,7 +1047,7 @@ function applyTheme(theme) {
 
 function updateThemeBtn(theme) {
   const btn = document.getElementById('themeToggleBtn');
-  const labels = { system: '🖥️ 自動', light: '☀️ ライト', dark: '🌙 ダーク' };
+  const labels = { system: '🖥️ テーマ: 自動', light: '☀️ テーマ: ライト', dark: '🌙 テーマ: ダーク' };
   btn.textContent = labels[theme];
   btn.title = 'クリックでテーマを切り替え(自動→ライト→ダーク)';
 }
