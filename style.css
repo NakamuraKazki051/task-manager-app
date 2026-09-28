@@ -18,6 +18,9 @@
   --danger-hover: #cf4b3a;
   --check-ring: #cbd2da;
   --check-bg: #61bd4f;
+  --hover-overlay: rgba(9, 30, 66, 0.06);
+  --add-column-bg: rgba(255, 255, 255, 0.14);
+  --secondary-hover: #d0d4db;
 
   --lbl-sky: #00c2e0;      --lbl-sky-tx: #08303c;
   --lbl-lime: #51e898;     --lbl-lime-tx: #0b3b25;
@@ -47,6 +50,9 @@
     --text-muted: #9fadbc;
     --text-oncolor: #f4f5f7;
     --check-ring: #4a5158;
+    --hover-overlay: rgba(255, 255, 255, 0.08);
+    --add-column-bg: rgba(255, 255, 255, 0.06);
+    --secondary-hover: #454c54;
 
     --lbl-sky-tx: #05161c;
     --lbl-lime-tx: #06210f;
@@ -77,6 +83,9 @@
   --text-muted: #9fadbc;
   --text-oncolor: #f4f5f7;
   --check-ring: #4a5158;
+  --hover-overlay: rgba(255, 255, 255, 0.08);
+  --add-column-bg: rgba(255, 255, 255, 0.06);
+  --secondary-hover: #454c54;
 
   --lbl-sky-tx: #05161c;
   --lbl-lime-tx: #06210f;
@@ -237,6 +246,91 @@ button {
   background: var(--border);
   color: var(--text);
 }
+.btn-secondary:hover:not(:disabled):not(.active) { background: var(--secondary-hover); }
+
+/* キーボード操作時に今どこにいるかが見えるようにする(マウスクリックでは出さない) */
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.task-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.app-header :focus-visible,
+.column.add-column :focus-visible { outline-color: #ffffff; }
+
+kbd {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--list-bg);
+}
+
+.menu { position: relative; }
+.menu > summary {
+  list-style: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.menu > summary::-webkit-details-marker { display: none; }
+.menu[open] > summary { background: var(--accent); color: white; }
+
+.menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.3);
+}
+.menu-panel button { width: 100%; text-align: left; }
+.menu-hint {
+  margin: 4px 2px 0;
+  font-size: 0.75rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+/* 狭い画面ではボタンの位置によってパネルが画面外にはみ出すため、パネルを行の中に展開する */
+@media (max-width: 720px) {
+  .menu[open] { flex-basis: 100%; }
+  .menu-panel { position: static; margin-top: 6px; }
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 6px 24px;
+  background: var(--surface);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.filter-bar button { padding: 5px 12px; font-size: 0.82rem; }
+@media (max-width: 720px) {
+  .filter-bar { padding: 6px 12px; }
+}
 
 .btn-danger {
   background: transparent;
@@ -293,10 +387,8 @@ button {
   border-radius: 4px;
   overflow-wrap: break-word;
 }
-.column-name:hover { background: rgba(9, 30, 66, 0.06); }
-@media (prefers-color-scheme: dark) {
-  .column-name:hover { background: rgba(255, 255, 255, 0.08); }
-}
+/* OSのテーマではなくテーマ切り替えボタンの選択に追従させるため、色はテーマ変数から取る */
+.column-name:hover { background: var(--hover-overlay); }
 
 .column-name-input {
   flex: 1;
@@ -381,11 +473,8 @@ button {
 .add-column-done input { margin: 0; }
 
 .column.add-column {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--add-column-bg);
   min-height: unset;
-}
-@media (prefers-color-scheme: dark) {
-  .column.add-column { background: rgba(255, 255, 255, 0.06); }
 }
 
 .add-column-btn {
@@ -566,6 +655,15 @@ button {
   font-size: 0.85rem;
   text-align: center;
   padding: 20px 0;
+}
+
+/* 列の中は明るい背景なので、白文字ではほぼ読めなかった */
+.column .empty-hint {
+  color: var(--text-muted);
+  opacity: 1;
+  border: 1px dashed var(--check-ring);
+  border-radius: 8px;
+  padding: 16px 8px;
 }
 
 .modal-overlay {

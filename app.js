@@ -196,6 +196,30 @@ async function render() {
     return;
   }
   renderColumns();
+  updateFilterBar();
+}
+
+function isFilterActive() {
+  return !!(document.getElementById('filterCategory').value
+    || document.getElementById('filterPriority').value
+    || document.getElementById('searchInput').value.trim());
+}
+
+// 検索・絞り込みでタスクが隠れていることに気づけるよう、件数と解除ボタンを出す
+function updateFilterBar() {
+  const active = currentBoardId !== null && isFilterActive();
+  document.getElementById('filterBar').classList.toggle('hidden', !active);
+  if (active) {
+    document.getElementById('filterSummary').textContent =
+      `絞り込み中: 全${tasks.length}件中 ${visibleTasks.length}件を表示`;
+  }
+}
+
+function clearFilters() {
+  document.getElementById('filterCategory').value = '';
+  document.getElementById('filterPriority').value = '';
+  document.getElementById('searchInput').value = '';
+  render();
 }
 
 function renderColumns() {
@@ -271,7 +295,7 @@ function renderColumns() {
     if (colTasks.length === 0) {
       const hint = document.createElement('div');
       hint.className = 'empty-hint';
-      hint.textContent = 'タスクはありません';
+      hint.textContent = isFilterActive() ? '条件に合うタスクはありません' : 'タスクはありません';
       list.appendChild(hint);
     }
 
@@ -473,10 +497,13 @@ function renderCard(task) {
   card.classList.toggle('selected', selectionMode && selectedTaskIds.has(task.id));
   card.draggable = !selectionMode;
   card.dataset.id = task.id;
+  // キーボード(Tab/Enter)でもカードを開けるようにする
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
 
   const overdue = isOverdue(task);
   const dueSoon = !overdue && isDueSoon(task);
-  const dueLabel = task.dueDate ? formatDate(task.dueDate) : '';
+  const dueLabel = task.dueDate ? formatDueLabel(task.dueDate) : '';
   const checklist = task.checklist || [];
   const checklistDone = checklist.filter(i => i.done).length;
 
@@ -487,8 +514,8 @@ function renderCard(task) {
     </div>
     ${task.description ? '<div class="task-card-desc"></div>' : ''}
     <div class="task-meta">
-      <span class="badge ${task.priority}">${PRIORITY_LABEL[task.priority]}</span>
-      ${task.dueDate ? `<span class="badge due ${overdue ? 'overdue' : ''} ${dueSoon ? 'due-soon' : ''}">${dueLabel}${overdue ? ' (期限超過)' : dueSoon ? ' (まもなく)' : ''}</span>` : ''}
+      <span class="badge ${task.priority}">優先度 ${PRIORITY_LABEL[task.priority]}</span>
+      ${task.dueDate ? `<span class="badge due ${overdue ? 'overdue' : ''} ${dueSoon ? 'due-soon' : ''}" title="期限: ${task.dueDate}">📅 ${dueLabel}${overdue ? ' (期限超過)' : ''}</span>` : ''}
       ${checklist.length ? `<span class="badge checklist ${checklistDone === checklist.length ? 'complete' : ''}">✓ ${checklistDone}/${checklist.length}</span>` : ''}
       ${(task.categories || []).map(c => `<span class="tag ${tagColorClass(c)}"></span>`).join('')}
     </div>
@@ -508,8 +535,11 @@ function renderCard(task) {
   if (selectionMode) {
     completeCheck.checked = selectedTaskIds.has(task.id);
     completeCheck.setAttribute('aria-label', 'このタスクを選択');
+    card.setAttribute('aria-pressed', String(selectedTaskIds.has(task.id)));
+    const toggleSelected = () => setTaskSelected(task.id, !selectedTaskIds.has(task.id), card, completeCheck);
     completeCheck.addEventListener('change', () => setTaskSelected(task.id, completeCheck.checked, card, completeCheck));
-    card.addEventListener('click', () => setTaskSelected(task.id, !selectedTaskIds.has(task.id), card, completeCheck));
+    card.addEventListener('click', toggleSelected);
+    onCardActivateKey(card, toggleSelected);
     return card;
   }
 
@@ -517,6 +547,7 @@ function renderCard(task) {
   completeCheck.addEventListener('change', () => toggleTaskComplete(task, completeCheck));
 
   card.addEventListener('click', () => openModal(task));
+  onCardActivateKey(card, () => openModal(task));
   card.addEventListener('dragstart', (e) => {
     card.classList.add('dragging');
     e.dataTransfer.setData('text/plain', task.id);
@@ -529,6 +560,17 @@ function renderCard(task) {
   });
 
   return card;
+}
+
+// カード自体にフォーカスがあるときだけ反応させる(中の完了チェックボックスでのSpaceはそちらの操作)
+function onCardActivateKey(card, action) {
+  card.addEventListener('keydown', (e) => {
+    if (e.target !== card) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      action();
+    }
+  });
 }
 
 async function toggleTaskComplete(task, checkbox) {
@@ -560,6 +602,7 @@ function setSelectionMode(enabled) {
 function setTaskSelected(id, selected, card, checkbox) {
   if (selected) selectedTaskIds.add(id); else selectedTaskIds.delete(id);
   card.classList.toggle('selected', selected);
+  card.setAttribute('aria-pressed', String(selected));
   checkbox.checked = selected;
   updateSelectionBar();
 }
@@ -594,9 +637,19 @@ async function handleBulkDelete() {
   render();
 }
 
-function formatDate(isoDate) {
-  const [y, m, d] = isoDate.split('-');
-  return `${m}/${d}`;
+// カードの期限表示。近い日は「今日」「明日」と書き、今年以外は年も付けて取り違えを防ぐ
+function formatDueLabel(isoDate) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const due = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / 86400000);
+  if (diffDays === 0) return '今日まで';
+  if (diffDays === 1) return '明日まで';
+  if (diffDays === 2) return 'あさってまで';
+  const mm = String(m).padStart(2, '0');
+  const dd = String(d).padStart(2, '0');
+  return y === today.getFullYear() ? `${mm}/${dd}` : `${y}/${mm}/${dd}`;
 }
 
 function formatCreatedAt(isoInstant) {
@@ -1088,6 +1141,7 @@ function showLoggedOutState() {
   currentBoardId = null;
   setSelectionMode(false);
   setLoggedInUiVisible(false);
+  updateFilterBar();
   const board = document.getElementById('board');
   board.innerHTML = '';
   const hint = document.createElement('div');
@@ -1338,9 +1392,24 @@ async function handleLogout() {
   showLoggedOutState();
 }
 
+function closeMoreMenu() {
+  document.getElementById('moreMenu').removeAttribute('open');
+}
+
 document.getElementById('addTaskBtn').addEventListener('click', () => openModal(null));
-document.getElementById('exportBtn').addEventListener('click', exportData);
-document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('exportBtn').addEventListener('click', () => {
+  closeMoreMenu();
+  exportData();
+});
+document.getElementById('importBtn').addEventListener('click', () => {
+  closeMoreMenu();
+  document.getElementById('importFile').click();
+});
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('moreMenu');
+  if (menu.open && !menu.contains(e.target)) closeMoreMenu();
+});
+document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
 document.getElementById('importFile').addEventListener('change', handleImportFile);
 document.getElementById('cancelBtn').addEventListener('click', closeModal);
 document.getElementById('taskForm').addEventListener('submit', handleSubmit);
@@ -1415,6 +1484,26 @@ document.getElementById('accountModalOverlay').addEventListener('click', (e) => 
 });
 document.addEventListener('keydown', (e) => {
   const anyModalOpen = [...document.querySelectorAll('.modal-overlay')].some(el => !el.classList.contains('hidden'));
+  const menu = document.getElementById('moreMenu');
+  if (e.key === 'Escape' && menu.open) {
+    closeMoreMenu();
+    menu.querySelector('summary').focus();
+    return;
+  }
+  // 文字入力中やモーダル表示中は横取りしない
+  const typing = e.target.closest('input, textarea, select, [contenteditable="true"]');
+  if (!typing && !anyModalOpen && currentBoardId && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.key === 'n' || e.key === 'N') {
+      e.preventDefault();
+      openModal(null);
+      return;
+    }
+    if (e.key === '/') {
+      e.preventDefault();
+      document.getElementById('searchInput').focus();
+      return;
+    }
+  }
   if (e.key === 'Escape' && selectionMode && !anyModalOpen) {
     setSelectionMode(false);
   }
