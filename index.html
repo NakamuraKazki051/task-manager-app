@@ -21,11 +21,11 @@
     </div>
     <div id="authStatus" class="auth-status"></div>
     <div id="headerActions" class="header-actions">
-      <input type="search" id="searchInput" class="search-input" placeholder="🔍 検索..." aria-label="タスクを検索">
-      <select id="filterCategory">
+      <input type="search" id="searchInput" class="search-input" placeholder="🔍 検索 ( / )" aria-label="タスクを検索">
+      <select id="filterCategory" aria-label="カテゴリで絞り込み">
         <option value="">全カテゴリ</option>
       </select>
-      <select id="filterPriority">
+      <select id="filterPriority" aria-label="優先度で絞り込み">
         <option value="">全優先度</option>
         <option value="high">高</option>
         <option value="mid">中</option>
@@ -37,12 +37,19 @@
         <option value="priority">並び替え: 優先度順</option>
       </select>
       <button type="button" id="selectionModeBtn" class="btn-secondary" aria-pressed="false" title="タスクを複数選択してまとめて削除します">☑ 選択</button>
-      <button type="button" id="themeToggleBtn" class="btn-secondary"></button>
-      <button type="button" id="notifyToggleBtn" class="btn-secondary"></button>
-      <button id="exportBtn" class="btn-secondary">エクスポート</button>
-      <button id="importBtn" class="btn-secondary">インポート</button>
+      <!-- 使用頻度の低い設定・データ操作はメニューにまとめ、ヘッダーのボタン数を減らす -->
+      <details id="moreMenu" class="menu">
+        <summary class="btn-secondary">⚙ 設定・データ</summary>
+        <div class="menu-panel">
+          <button type="button" id="themeToggleBtn" class="btn-secondary"></button>
+          <button type="button" id="notifyToggleBtn" class="btn-secondary"></button>
+          <button type="button" id="exportBtn" class="btn-secondary">⬇ エクスポート</button>
+          <button type="button" id="importBtn" class="btn-secondary">⬆ インポート</button>
+          <p class="menu-hint">ショートカット: <kbd>N</kbd> タスク追加 / <kbd>/</kbd> 検索 / <kbd>Esc</kbd> 閉じる</p>
+        </div>
+      </details>
       <input type="file" id="importFile" accept="application/json,.json" class="hidden">
-      <button id="addTaskBtn" class="btn-primary">+ タスク追加</button>
+      <button type="button" id="addTaskBtn" class="btn-primary" title="タスクを追加 (N)">+ タスク追加</button>
     </div>
   </header>
 
@@ -60,6 +67,11 @@
       <button type="button" id="bulkDeleteBtn" class="btn-danger">選択したタスクを削除</button>
       <button type="button" id="exitSelectionBtn" class="btn-secondary">終了</button>
     </div>
+  </div>
+
+  <div id="filterBar" class="filter-bar hidden" role="status">
+    <span id="filterSummary"></span>
+    <button type="button" id="clearFiltersBtn" class="btn-secondary">条件をクリア</button>
   </div>
 
   <main class="board" id="board"></main>
