@@ -283,7 +283,9 @@ kbd {
   white-space: nowrap;
 }
 .menu > summary::-webkit-details-marker { display: none; }
-.menu[open] > summary { background: var(--accent); color: white; }
+/* .btn-secondary のホバー色に負けて、開いたまま乗せると白文字が薄いグレーに乗って読めなかった */
+.menu[open] > summary.btn-secondary,
+.menu[open] > summary.btn-secondary:hover { background: var(--accent); color: white; }
 
 .menu-panel {
   position: absolute;
@@ -453,13 +455,17 @@ kbd {
 .column:hover .column-move,
 .column:focus-within .column-move { opacity: 1; }
 .column-move:hover:not(:disabled) { background: var(--border); color: var(--accent); }
-.column-move:disabled { cursor: not-allowed; opacity: 0.35; }
+/* 無効時の薄さは列にホバーしているときだけ。常に指定すると非表示(opacity: 0)を上書きして、端の列の◀▶が常に見えてしまう */
+.column-move:disabled { cursor: not-allowed; }
+.column:hover .column-move:disabled,
+.column:focus-within .column-move:disabled { opacity: 0.35; }
 
 /* ホバーが効かないタッチ端末では、常時ボタンを表示して操作できるようにする */
 @media (hover: none) {
   .column-delete,
   .column-done-toggle,
   .column-move { opacity: 1; }
+  .column-move:disabled { opacity: 0.35; }
 }
 
 .add-column-done {
