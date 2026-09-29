@@ -7,6 +7,7 @@ import com.taskmanager.api.user.UserDtos.UpdateRequest;
 import com.taskmanager.api.user.UserDtos.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,7 +39,16 @@ public class UserController {
             throw ApiException.conflict("このメールアドレスは既に登録されています: " + email);
         }
         User user = new User(email, passwordEncoder.encode(request.password()));
-        return UserResponse.from(userRepository.save(user));
+        return UserResponse.from(saveOrConflict(user));
+    }
+
+    // 上の存在チェックとこの保存の間に同じメールアドレスが登録されると一意制約違反になる。その場合も409で返す
+    private User saveOrConflict(User user) {
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw ApiException.conflict("このメールアドレスは既に登録されています: " + user.getEmail());
+        }
     }
 
     @PutMapping("/me")
@@ -59,10 +69,16 @@ public class UserController {
             user.setEmail(email);
         }
 
-        if (request.newPassword() != null && !request.newPassword().isBlank()) {
+        boolean passwordChanged = request.newPassword() != null && !request.newPassword().isBlank();
+        if (passwordChanged) {
             user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         }
 
-        return UserResponse.from(userRepository.save(user));
+        User saved = saveOrConflict(user);
+        if (passwordChanged) {
+            // 他の端末のセッションはパスワード不一致で切れる。変更した本人のセッションだけ新しいパスワードで維持する
+            currentUser.signIn(httpRequest, saved);
+        }
+        return UserResponse.from(saved);
     }
 }

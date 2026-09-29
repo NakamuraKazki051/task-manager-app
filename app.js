@@ -54,6 +54,13 @@ async function apiFetch(path, options = {}) {
 
   if (!res.ok) {
     const message = data && data.message ? data.message : `リクエストに失敗しました (${res.status})`;
+    // 別の端末でパスワードが変更された・サーバーが再起動したなどでセッションが切れたら、ログアウト状態の画面に戻す
+    if (res.status === 401 && currentUser) {
+      currentUser = null;
+      closeModal();
+      renderAuthStatus();
+      showLoggedOutState();
+    }
     showApiError(message);
     throw new Error(message);
   }
