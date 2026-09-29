@@ -1,5 +1,6 @@
 package com.taskmanager.api.task;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -13,7 +14,7 @@ public class TaskDtos {
     private TaskDtos() {
     }
 
-    public record ChecklistItemRequest(String text, boolean done) {
+    public record ChecklistItemRequest(@Size(max = 200, message = "チェックリストの項目は200文字以内で入力してください") String text, boolean done) {
     }
 
     public record ChecklistItemResponse(String id, String text, boolean done) {
@@ -28,8 +29,9 @@ public class TaskDtos {
             @NotBlank String columnId,
             LocalDate dueDate,
             Priority priority,
-            List<String> categories,
-            List<ChecklistItemRequest> checklist,
+            // リスト自体ではなく中の要素を検証するため、型引数側に付ける
+            List<@Size(max = 30, message = "カテゴリは1つ30文字以内で入力してください") String> categories,
+            List<@Valid ChecklistItemRequest> checklist,
             Boolean completed
     ) {
     }

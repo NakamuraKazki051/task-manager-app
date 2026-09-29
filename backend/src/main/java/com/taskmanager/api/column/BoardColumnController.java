@@ -52,7 +52,7 @@ public class BoardColumnController {
     }
 
     @PutMapping("/api/columns/{id}")
-    public ColumnResponse update(@PathVariable String id, @RequestBody ColumnUpdateRequest request, HttpServletRequest httpRequest) {
+    public ColumnResponse update(@PathVariable String id, @Valid @RequestBody ColumnUpdateRequest request, HttpServletRequest httpRequest) {
         String userId = currentUser.require(httpRequest);
         BoardColumn column = findOrThrow(id);
         requireBoardOwnership(column.getBoardId(), userId);

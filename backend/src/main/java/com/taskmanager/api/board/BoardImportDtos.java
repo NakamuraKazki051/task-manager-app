@@ -1,6 +1,7 @@
 package com.taskmanager.api.board;
 
 import com.taskmanager.api.task.Priority;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -13,10 +14,10 @@ public class BoardImportDtos {
     private BoardImportDtos() {
     }
 
-    public record ImportChecklistItemRequest(String text, boolean done) {
+    public record ImportChecklistItemRequest(@Size(max = 200, message = "チェックリストの項目は200文字以内で入力してください") String text, boolean done) {
     }
 
-    public record ImportColumnRequest(String id, @NotBlank String name, boolean done) {
+    public record ImportColumnRequest(String id, @NotBlank @Size(max = 30, message = "列名は30文字以内で入力してください") String name, boolean done) {
     }
 
     public record ImportTaskRequest(
@@ -25,15 +26,16 @@ public class BoardImportDtos {
             @Size(max = 500) String description,
             LocalDate dueDate,
             Priority priority,
-            List<String> categories,
-            List<ImportChecklistItemRequest> checklist,
+            List<@Size(max = 30, message = "カテゴリは1つ30文字以内で入力してください") String> categories,
+            List<@Valid ImportChecklistItemRequest> checklist,
             Boolean completed
     ) {
     }
 
+    // 要素に @Valid を付けないと、列・タスクそれぞれの @NotBlank / @Size が検証されない
     public record ImportRequest(
-            @NotEmpty List<ImportColumnRequest> columns,
-            List<ImportTaskRequest> tasks
+            @NotEmpty List<@Valid ImportColumnRequest> columns,
+            List<@Valid ImportTaskRequest> tasks
     ) {
     }
 }
