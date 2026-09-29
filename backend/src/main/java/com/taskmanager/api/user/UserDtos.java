@@ -12,14 +12,14 @@ public class UserDtos {
     }
 
     public record RegisterRequest(
-            @NotBlank @Email String email,
-            // BCrypt silently ignores input past 72 bytes, so cap here to fail loudly instead
+            @NotBlank @Email @Size(max = 255, message = "メールアドレスは255文字以内で入力してください") String email,
+            // BCrypt only accepts up to 72 bytes; multi-byte passwords are additionally checked in PasswordEncoderConfig
             @NotBlank @Size(min = 8, max = 72, message = "パスワードは8〜72文字で入力してください") String password
     ) {
     }
 
     public record UpdateRequest(
-            @Email String email,
+            @Email @Size(max = 255, message = "メールアドレスは255文字以内で入力してください") String email,
             @NotBlank String currentPassword,
             @Size(min = 8, max = 72, message = "パスワードは8〜72文字で入力してください") String newPassword
     ) {

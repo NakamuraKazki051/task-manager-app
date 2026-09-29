@@ -28,9 +28,11 @@ java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.
 
 認証はCookieセッション方式。`/api/users/register` と `/api/auth/login` 以外はログインが必要で、未ログインなら401を返す。他ユーザーのボード・列・タスクへのアクセスは存在しない扱い（404）になる。CORSは `http://localhost:*` / `http://127.0.0.1:*` からのみ許可している。
 
+入力の上限: メールアドレス255文字、パスワード8〜72文字かつ72バイト以内（全角文字は1文字3バイト）、ボード名・列名30文字、タスクの `title` 100文字・`description` 500文字、カテゴリ1つ30文字、チェックリストの項目200文字。超えた場合や必須項目が無い場合は400を返す（インポートでは列・タスク1件ずつ検証し、1件でも不正なら何も変更しない）。
+
 | メソッド | パス | 説明 |
 |---|---|---|
-| POST | `/api/users/register` | ユーザー登録 `{email, password}`（パスワードは8〜72文字） |
+| POST | `/api/users/register` | ユーザー登録 `{email, password}`（パスワードは8〜72文字・72バイト以内） |
 | PUT | `/api/users/me` | メールアドレス・パスワード変更 `{email?, newPassword?, currentPassword}` |
 | POST | `/api/auth/login` | ログイン `{email, password}`（セッションIDを再発行） |
 | POST | `/api/auth/logout` | ログアウト |
