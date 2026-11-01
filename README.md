@@ -81,6 +81,7 @@ java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.
 | `mockup.html` | UIモックアップ（style.cssを読み込んだ静的な画面サンプル、操作不可） |
 | `architecture.html` | 画面遷移図・データモデルER図・APIシーケンス図 |
 | `backend/` | Spring Boot REST API（Board / Column / Task） |
+| `perf/` | 性能テスト（k6 のシナリオ、テストデータの SQL、実行スクリプト） |
 | `docker-compose.yml` | バックエンド用PostgreSQLコンテナ定義 |
 
 ## データ保存について
