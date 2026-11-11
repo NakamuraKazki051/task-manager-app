@@ -77,7 +77,6 @@ java -Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m -jar target/task-manager-api-0.
 | `style.css` | スタイル |
 | `app.js` | タスクの状態管理・描画、バックエンドAPIとの通信 |
 | `requirements.html` | 要件定義書 |
-| `docs/finance-app-requirements.md` | 派生アプリ（収支管理アプリ）の要件定義書 |
 | `mockup.html` | UIモックアップ（style.cssを読み込んだ静的な画面サンプル、操作不可） |
 | `architecture.html` | 画面遷移図・データモデルER図・APIシーケンス図 |
 | `backend/` | Spring Boot REST API（Board / Column / Task） |
@@ -105,17 +104,14 @@ docker compose up -d   # 起動（localhost:5432、ユーザー/パスワード:
 docker compose down    # 停止（データはボリュームに保持）
 ```
 
+データは名前付きボリューム `task-manager-app_db-data` に残ります。`docker-compose.yml` でプロジェクト名を `task-manager-app` に固定しているので、リポジトリのフォルダを移したり名前を変えたりしても、同じデータを使えます。
+
 低メモリ環境向けに `postgres:16-alpine` を使用し、コンテナのメモリ上限を256MBに制限しています。バックエンドの起動方法は [`backend/README.md`](./backend/README.md) を参照してください。
 
 ## AWS（EC2）環境
 
 `infra/terraform/` に、AWSの無料枠の範囲でEC2とRDS（PostgreSQL）を1台ずつ作るTerraformの設定があります。作り方・費用の注意点は [`infra/terraform/README.md`](./infra/terraform/README.md) を参照してください。
 
-## 派生アプリの計画：収支管理アプリ
+## 派生アプリ：収支管理アプリ
 
-このアプリをベースに、個人向けの収支管理アプリ（「袋分け家計簿」をカンバンで作るイメージ）を作る計画があります。要件定義書は [`docs/finance-app-requirements.md`](./docs/finance-app-requirements.md) を参照してください。
-
-- ボード → 家計簿、列 → カテゴリ（収入/支出）、タスク → 取引（金額・日付・メモ）に置き換える
-- 金額は日本円の整数で保持し、集計はDB側で行う
-- フェーズ1（MVP）：取引の記録、月の切替、収入・支出・残高のサマリー
-- フェーズ2：CSV出力、月間予算、集計グラフ ／ フェーズ3：固定費の自動作成、予定と実績
+このアプリをもとに、個人向けの収支管理アプリ（「袋分け家計簿」をカンバンで作るイメージ）を別のリポジトリ（`finance-manager-app`）で作りました。要件定義書は、そのリポジトリの `docs/finance-app-requirements.md` にあります。
