@@ -1,3 +1,7 @@
+# プロジェクト名を固定する。フォルダ名から決めると、フォルダを移したときに
+# 別のボリュームが作られ、DB が空に見えてしまうため。
+name: task-manager-app
+
 services:
   db:
     image: postgres:16-alpine
