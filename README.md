@@ -110,7 +110,7 @@ docker compose down    # 停止（データはボリュームに保持）
 
 ## AWS（EC2）環境
 
-`infra/terraform/` に、AWSの無料枠の範囲でEC2とRDS（PostgreSQL）を1台ずつ作るTerraformの設定があります。作り方・費用の注意点は [`infra/terraform/README.md`](./infra/terraform/README.md) を参照してください。
+`infra/terraform/` に、AWSの無料枠の範囲でEC2とRDS（PostgreSQL）を1台ずつ作るTerraformの設定があります。ブラウザとの間は CloudFront で HTTPS にしています（`https://xxxx.cloudfront.net`）。作り方・費用の注意点は [`infra/terraform/README.md`](./infra/terraform/README.md) を参照してください。
 
 ## 派生アプリ：収支管理アプリ
 
