@@ -27,20 +27,25 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final LoginRateLimiter loginRateLimiter;
 
     // 未登録のメールアドレスでも照合に使うダミーのハッシュ
     private final String dummyPasswordHash;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, CurrentUser currentUser) {
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, CurrentUser currentUser,
+                          LoginRateLimiter loginRateLimiter) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.currentUser = currentUser;
+        this.loginRateLimiter = loginRateLimiter;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
     @PostMapping("/login")
     public UserResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.email().trim().toLowerCase();
+        // パスワードの総当たりを防ぐため、同じメールアドレスへのログインは5分間に10回まで
+        loginRateLimiter.check(email);
         Optional<User> found = userRepository.findByEmail(email);
         // BCryptの照合は意図的に遅い。未登録のときに照合を省くと応答が速くなり、登録の有無を推測されるため、必ず1回照合する
         String hash = found.map(User::getPasswordHash).orElse(dummyPasswordHash);
