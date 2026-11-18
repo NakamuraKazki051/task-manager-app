@@ -52,7 +52,7 @@ $commands = @(
     'mv app.jar.new app.jar'
 ) + ($frontendFiles | ForEach-Object { "aws s3 cp --region $region --only-show-errors s3://$bucket/frontend/$_ frontend/$_" }) + @(
     'docker compose up -d --force-recreate app',
-    'for i in $(seq 1 36); do code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/boards); if [ "$code" = 401 ]; then echo backend-ready; exit 0; fi; sleep 5; done',
+    'for i in $(seq 1 36); do code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/boards); if [ "$code" = 401 ]; then echo backend-ready; exit 0; fi; sleep 5; done',
     'echo backend-not-ready; docker compose logs --tail 80 app; exit 1'
 )
 $params = Join-Path ([IO.Path]::GetTempPath()) 'task-manager-deploy.json'
