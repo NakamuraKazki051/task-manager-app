@@ -1,0 +1,43 @@
+# PR と master への push のたびに、API のテストと画面の JavaScript の文法チェックを自動で動かす
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: API のテスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      # テストは H2(メモリ上の DB)を使うので、PostgreSQL は要らない
+      - run: mvn -B test
+        working-directory: backend
+
+  frontend:
+    name: 画面の文法チェック
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      # 画面はビルドしない素の JavaScript なので、書き間違いで読み込めなくなっていないかだけを確かめる
+      - run: node --check app.js
